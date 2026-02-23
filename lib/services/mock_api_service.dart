@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'base_api_service.dart';
 import '../models/user.dart';
 import '../models/emotion.dart';
@@ -8,7 +10,8 @@ import '../models/crisis.dart';
 import '../models/victory.dart';
 import '../models/dashboard_data.dart';
 
-class MockApiService implements AuthApiService, CoreApiService {
+class MockApiService
+    implements AuthApiService, CoreApiService, ReportsApiService {
   @override
   Future<User> login(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1));
@@ -309,5 +312,27 @@ class MockApiService implements AuthApiService, CoreApiService {
     };
 
     return Capsule.fromJson(capsuleJson);
+  }
+
+  @override
+  Future<User> updateProfile({String? preferredName, File? avatarImage}) async {
+    await Future.delayed(const Duration(milliseconds: 800));
+    final prefs = await SharedPreferences.getInstance();
+    final currentName = prefs.getString('user_nombre') ?? 'Usuario';
+    return User(
+      id: 'uuid-user-123',
+      email: prefs.getString('user_email') ?? 'mock@see.app',
+      nombrePreferido: preferredName ?? currentName,
+      token: prefs.getString('auth_token') ?? 'mock.token',
+      avatarUrl: avatarImage != null
+          ? 'https://picsum.photos/200?mock=${DateTime.now().millisecondsSinceEpoch}'
+          : null,
+    );
+  }
+
+  @override
+  Future<String> getClinicalReportUrl() async {
+    await Future.delayed(const Duration(milliseconds: 800));
+    return 'https://www.w3.org/WAI/WCAG21/Techniques/pdf/PDF1';
   }
 }

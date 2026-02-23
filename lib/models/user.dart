@@ -3,12 +3,14 @@ class User {
   final String email;
   final String nombrePreferido;
   final String token;
+  final String? avatarUrl;
 
   User({
     required this.id,
     required this.email,
     required this.nombrePreferido,
     required this.token,
+    this.avatarUrl,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,7 @@ class User {
       email: json['email'] as String,
       nombrePreferido: json['nombrePreferido'] as String,
       token: json['token'] as String,
+      avatarUrl: json['avatarUrl'] as String?,
     );
   }
 
@@ -26,6 +29,7 @@ class User {
       'email': email,
       'nombrePreferido': nombrePreferido,
       'token': token,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
     };
   }
 
@@ -34,12 +38,15 @@ class User {
     String? email,
     String? nombrePreferido,
     String? token,
+    String? avatarUrl,
+    bool clearAvatar = false,
   }) {
     return User(
       id: id ?? this.id,
       email: email ?? this.email,
       nombrePreferido: nombrePreferido ?? this.nombrePreferido,
       token: token ?? this.token,
+      avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
     );
   }
 }

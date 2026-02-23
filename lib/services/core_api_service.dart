@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
+import '../models/user.dart';
 import '../models/emotion.dart';
 import '../models/victory_type.dart';
 import '../models/evaluation.dart';
@@ -92,9 +97,9 @@ class HttpCoreApiService implements CoreApiService {
   }) async {
     final body = <String, dynamic>{};
     if (evaluation != null) body['evaluation'] = evaluation;
-    if (breathingCompleted != null)
+    if (breathingCompleted != null) {
       body['breathing_completed'] = breathingCompleted;
-
+    }
     final data = await _client.patch('/crises/$id', body);
     return Crisis.fromJson(data as Map<String, dynamic>);
   }
@@ -122,5 +127,37 @@ class HttpCoreApiService implements CoreApiService {
     return (data as List)
         .map((e) => Victory.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<User> updateProfile({String? preferredName, File? avatarImage}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token') ?? '';
+    final uri = Uri.parse('${ApiConfig.coreUrl}/api/users/profile');
+
+    final request = http.MultipartRequest('PUT', uri)
+      ..headers['Authorization'] = 'Bearer $token';
+
+    if (preferredName != null) {
+      request.fields['preferredName'] = preferredName;
+    }
+    if (avatarImage != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath('avatar', avatarImage.path),
+      );
+    }
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al actualizar perfil: ${response.statusCode}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return User.fromJson({
+      ...json,
+      'token': token,
+    });
   }
 }

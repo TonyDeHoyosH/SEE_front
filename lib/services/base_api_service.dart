@@ -6,6 +6,7 @@ import '../models/capsule.dart';
 import '../models/crisis.dart';
 import '../models/victory.dart';
 import '../models/dashboard_data.dart';
+import 'dart:io';
 
 abstract class AuthApiService {
   Future<User> login(String email, String password);
@@ -38,8 +39,10 @@ abstract class CoreApiService {
 
   Future<Victory> createVictory(String name, DateTime occurredAt);
   Future<List<Victory>> getMyVictories();
+
+  Future<User> updateProfile({String? preferredName, File? avatarImage});
 }
 
 abstract class ReportsApiService {
-  // Reservado para métricas y reportes futuros
+  Future<String> getClinicalReportUrl();
 }

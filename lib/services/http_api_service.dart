@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'base_api_service.dart';
 import '../models/user.dart';
 import '../models/emotion.dart';
@@ -135,5 +136,10 @@ class HttpApiService implements AuthApiService, CoreApiService {
     return ((await _coreClient.get('/victories/me')) as List)
         .map((e) => Victory.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<User> updateProfile({String? preferredName, File? avatarImage}) async {
+    throw UnimplementedError('Use HttpCoreApiService.updateProfile instead.');
   }
 }

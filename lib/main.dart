@@ -4,6 +4,7 @@ import 'config/theme.dart';
 import 'services/base_api_service.dart';
 import 'services/auth_api_service.dart';
 import 'services/core_api_service.dart';
+import 'services/reports_api_service.dart';
 import 'services/mock_api_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/data_provider.dart';
@@ -20,33 +21,39 @@ void main() async {
 
   final AuthApiService authService;
   final CoreApiService coreService;
+  final ReportsApiService reportsService;
 
   if (_kUseMock) {
     final mock = MockApiService();
     authService = mock;
     coreService = mock;
+    reportsService = mock;
   } else {
     authService = HttpAuthApiService();
     coreService = HttpCoreApiService();
+    reportsService = HttpReportsApiService();
   }
 
-  final authProvider = AuthProvider(authService);
+  final authProvider = AuthProvider(authService, coreService);
   await authProvider.loadSavedUser();
 
   runApp(MyApp(
     authProvider: authProvider,
     coreService: coreService,
+    reportsService: reportsService,
   ));
 }
 
 class MyApp extends StatelessWidget {
   final AuthProvider authProvider;
   final CoreApiService coreService;
+  final ReportsApiService reportsService;
 
   const MyApp({
     super.key,
     required this.authProvider,
     required this.coreService,
+    required this.reportsService,
   });
 
   @override
@@ -54,6 +61,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<CoreApiService>.value(value: coreService),
+        Provider<ReportsApiService>.value(value: reportsService),
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(
           create: (_) {

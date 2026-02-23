@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
@@ -5,11 +6,12 @@ import '../services/base_api_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthApiService _authService;
+  final CoreApiService _coreService;
   User? _user;
   bool _isLoading = false;
   String? _errorMessage;
 
-  AuthProvider(this._authService);
+  AuthProvider(this._authService, this._coreService);
 
   User? get user => _user;
   bool get isLoading => _isLoading;
@@ -45,6 +47,23 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _authService.register(email, password, nombrePreferido);
       await _saveSession(_user!);
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateAvatar(File imageFile) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updated = await _coreService.updateProfile(avatarImage: imageFile);
+      _user = _user?.copyWith(avatarUrl: updated.avatarUrl);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
