@@ -129,7 +129,7 @@ class _DashboardViewState extends State<_DashboardView> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'AWOS',
+                      'SEE',
                       style: GoogleFonts.nunito(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,

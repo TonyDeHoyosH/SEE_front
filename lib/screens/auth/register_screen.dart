@@ -116,7 +116,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Únete a AWOS',
+                      'Únete a SEE',
                       style: Theme.of(context).textTheme.displayMedium,
                       textAlign: TextAlign.center,
                     ),

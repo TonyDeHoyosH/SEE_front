@@ -114,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'AWOS',
+                        'SEE',
                         style: Theme.of(context)
                             .textTheme
                             .displayLarge

@@ -1,5 +1,5 @@
 class AppConstants {
-  static const String appName = 'AWOS';
+  static const String appName = 'SEE';
   static const String appVersion = '1.0.0';
 
   static const int breathingCycleDuration = 19;

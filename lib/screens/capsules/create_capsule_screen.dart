@@ -130,7 +130,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Grabación de Audio en AWOS',
+                'Grabación de Audio en SEE',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 12),
@@ -143,7 +143,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
                 '2. Solo tú tienes acceso a estas grabaciones.\n'
                 '3. Las grabaciones son para tu uso personal y, si lo deseas, para compartir con tu terapeuta.\n'
                 '4. Puedes eliminar tus grabaciones en cualquier momento.\n'
-                '5. AWOS no comparte ni analiza el contenido de tus grabaciones.',
+                '5. SEE no comparte ni analiza el contenido de tus grabaciones.',
               ),
               SizedBox(height: 12),
               Text(

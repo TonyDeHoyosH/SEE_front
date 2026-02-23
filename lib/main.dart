@@ -72,7 +72,7 @@ class MyApp extends StatelessWidget {
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
           return MaterialApp(
-            title: 'AWOS',
+            title: 'SEE',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             home: authProvider.isAuthenticated
