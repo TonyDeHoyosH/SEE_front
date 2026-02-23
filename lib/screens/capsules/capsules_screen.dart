@@ -5,7 +5,7 @@ import '../../config/theme.dart';
 import '../../models/emotion.dart';
 import '../../providers/data_provider.dart';
 import '../../models/capsule.dart';
-import '../../services/core_api_service.dart';
+import '../../services/base_api_service.dart';
 import '../../widgets/app_drawer.dart';
 import 'capsule_detail_screen.dart';
 import 'create_capsule_screen.dart';
@@ -31,7 +31,7 @@ class _CapsulesScreenState extends State<CapsulesScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final capsules = await HttpCoreApiService().getCapsules();
+      final capsules = await context.read<CoreApiService>().getCapsules();
       setState(() {
         _capsules = capsules;
       });
