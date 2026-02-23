@@ -247,6 +247,22 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
                                       return GestureDetector(
                                         onLongPress: () =>
                                             _showOptionsSheet(def),
+                                        onTap: () {
+                                          final wasChecked = isChecked;
+                                          provider.toggleCheck(def.id);
+                                          if (!wasChecked) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content:
+                                                    Text('¡Bien hecho! 🎉'),
+                                                backgroundColor:
+                                                    AppTheme.successGreen,
+                                                duration: Duration(seconds: 1),
+                                              ),
+                                            );
+                                          }
+                                        },
                                         child: Container(
                                           decoration: BoxDecoration(
                                             border: entry.key <
@@ -262,7 +278,7 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
                                                   )
                                                 : null,
                                           ),
-                                          child: CheckboxListTile(
+                                          child: ListTile(
                                             title: Text(
                                               def.name,
                                               style: GoogleFonts.nunito(
@@ -276,46 +292,31 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
                                                     : AppTheme.textDark,
                                               ),
                                             ),
-                                            value: isChecked,
-                                            onChanged: (value) {
-                                              provider.toggleCheck(def.id);
-                                              if (value == true) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                    content:
-                                                        Text('¡Bien hecho! 🎉'),
-                                                    backgroundColor:
-                                                        AppTheme.successGreen,
-                                                    duration:
-                                                        Duration(seconds: 1),
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                            secondary: AnimatedContainer(
+                                            trailing: AnimatedContainer(
                                               duration: const Duration(
-                                                  milliseconds: 300),
-                                              padding: const EdgeInsets.all(6),
+                                                  milliseconds: 250),
+                                              width: 26,
+                                              height: 26,
                                               decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
                                                 gradient: isChecked
                                                     ? AppTheme.mintGradient
                                                     : null,
-                                                color: isChecked
+                                                border: isChecked
                                                     ? null
-                                                    : AppTheme.textLight
-                                                        .withValues(alpha: 0.1),
-                                                shape: BoxShape.circle,
+                                                    : Border.all(
+                                                        color: Colors
+                                                            .grey.shade300,
+                                                        width: 2,
+                                                      ),
                                               ),
-                                              child: Icon(
-                                                isChecked
-                                                    ? Icons.check_rounded
-                                                    : Icons.circle_outlined,
-                                                color: isChecked
-                                                    ? Colors.white
-                                                    : AppTheme.textLight,
-                                                size: 20,
-                                              ),
+                                              child: isChecked
+                                                  ? const Icon(
+                                                      Icons.check_rounded,
+                                                      color: Colors.white,
+                                                      size: 16,
+                                                    )
+                                                  : const SizedBox.shrink(),
                                             ),
                                           ),
                                         ),
@@ -370,11 +371,14 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
                                       shrinkWrap: true,
                                       physics:
                                           const NeverScrollableScrollPhysics(),
-                                      itemCount: provider.history.length,
+                                      itemCount:
+                                          provider.history.take(7).length,
                                       separatorBuilder: (context, index) =>
                                           const SizedBox(height: 10),
                                       itemBuilder: (context, index) {
-                                        final log = provider.history[index];
+                                        final log = provider.history
+                                            .take(7)
+                                            .toList()[index];
                                         return _VictoryCard(log: log);
                                       },
                                     ),
