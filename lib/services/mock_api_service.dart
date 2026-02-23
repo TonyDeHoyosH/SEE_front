@@ -83,7 +83,7 @@ class MockApiService implements AuthApiService, CoreApiService {
       {"id": 2, "name": "Tristeza"},
       {"id": 3, "name": "Ira"},
       {"id": 4, "name": "Ansiedad"},
-      {"id": 5, "name": "Alegría"},
+      {"id": 5, "name": "Vacío"},
     ];
 
     return emotionsJson.map((json) => Emotion.fromJson(json)).toList();

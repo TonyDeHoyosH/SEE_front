@@ -434,7 +434,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   }
 
   Widget _buildAudioStep2() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,7 +458,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
               prefixIcon: Icon(Icons.title),
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 32),
           Center(
             child: Column(
               children: [
@@ -539,7 +539,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
               ],
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

@@ -81,7 +81,7 @@ class CrisisEmotionScreen extends StatelessWidget {
                           crossAxisCount: 2,
                           crossAxisSpacing: 16,
                           mainAxisSpacing: 16,
-                          childAspectRatio: 1.2,
+                          childAspectRatio: 1.1,
                         ),
                         itemCount: emotions.length,
                         itemBuilder: (context, index) {
@@ -108,7 +108,7 @@ class CrisisEmotionScreen extends StatelessWidget {
     if (lower.contains('miedo')) return '😨';
     if (lower.contains('tristeza')) return '😢';
     if (lower.contains('ira')) return '😠';
-    if (lower.contains('alegr')) return '😊';
+    if (lower.contains('vacío') || lower.contains('vacio')) return '😶';
     return '😐';
   }
 
@@ -174,7 +174,7 @@ class _EmotionCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(12.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
