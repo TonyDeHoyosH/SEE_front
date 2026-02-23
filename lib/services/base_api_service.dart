@@ -7,10 +7,12 @@ import '../models/crisis.dart';
 import '../models/victory.dart';
 import '../models/dashboard_data.dart';
 
-abstract class BaseApiService {
+abstract class AuthApiService {
   Future<User> login(String email, String password);
   Future<User> register(String email, String password, String nombrePreferido);
+}
 
+abstract class CoreApiService {
   Future<Map<String, dynamic>> getCatalogs();
   Future<DashboardData> getDashboard();
 
@@ -20,6 +22,11 @@ abstract class BaseApiService {
 
   Future<List<Capsule>> getCapsules({int? emotionId});
   Future<Capsule> getCapsuleById(String id);
+  Future<Capsule> createCapsule({
+    required String title,
+    required String content,
+    required int emotionId,
+  });
 
   Future<Map<String, dynamic>> createCrisis(String emotion);
   Future<Crisis> updateCrisis(
@@ -31,10 +38,8 @@ abstract class BaseApiService {
 
   Future<Victory> createVictory(String name, DateTime occurredAt);
   Future<List<Victory>> getMyVictories();
+}
 
-  Future<Capsule> createCapsule({
-    required String title,
-    required String content,
-    required int emotionId,
-  });
+abstract class ReportsApiService {
+  // Reservado para métricas y reportes futuros
 }

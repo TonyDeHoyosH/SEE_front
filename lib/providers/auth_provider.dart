@@ -4,12 +4,12 @@ import '../models/user.dart';
 import '../services/base_api_service.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final BaseApiService _apiService;
+  final AuthApiService _authService;
   User? _user;
   bool _isLoading = false;
   String? _errorMessage;
 
-  AuthProvider(this._apiService);
+  AuthProvider(this._authService);
 
   User? get user => _user;
   bool get isLoading => _isLoading;
@@ -22,8 +22,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _user = await _apiService.login(email, password);
-      await _saveToken(_user!.token);
+      _user = await _authService.login(email, password);
+      await _saveSession(_user!);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -43,8 +43,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _user = await _apiService.register(email, password, nombrePreferido);
-      await _saveToken(_user!.token);
+      _user = await _authService.register(email, password, nombrePreferido);
+      await _saveSession(_user!);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -56,23 +56,19 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     _user = null;
-    await _clearToken();
+    await _clearSession();
     notifyListeners();
   }
 
-  Future<void> _saveToken(String token) async {
+  Future<void> _saveSession(User user) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
-
-    // Save user data for session restoration
-    if (_user != null) {
-      await prefs.setString('user_id', _user!.id);
-      await prefs.setString('user_email', _user!.email);
-      await prefs.setString('user_nombre', _user!.nombrePreferido);
-    }
+    await prefs.setString('auth_token', user.token);
+    await prefs.setString('user_id', user.id);
+    await prefs.setString('user_email', user.email);
+    await prefs.setString('user_nombre', user.nombrePreferido);
   }
 
-  Future<void> _clearToken() async {
+  Future<void> _clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_id');
@@ -92,7 +88,6 @@ class AuthProvider extends ChangeNotifier {
       final id = prefs.getString('user_id');
 
       if (token != null && email != null && nombre != null && id != null) {
-        // Restore user from saved data
         _user = User(
           id: id,
           email: email,

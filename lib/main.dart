@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'config/theme.dart';
-import 'services/mock_api_service.dart';
+import 'services/base_api_service.dart';
+import 'services/auth_api_service.dart';
+import 'services/core_api_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/data_provider.dart';
 import 'providers/crisis_provider.dart';
@@ -12,44 +14,42 @@ import 'screens/home/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final apiService = MockApiService();
-  final authProvider = AuthProvider(apiService);
+  final authService = HttpAuthApiService();
+  final coreService = HttpCoreApiService();
 
-  // Load saved session before starting the app
+  final authProvider = AuthProvider(authService);
   await authProvider.loadSavedUser();
 
   runApp(MyApp(
-    apiService: apiService,
     authProvider: authProvider,
+    coreService: coreService,
   ));
 }
 
 class MyApp extends StatelessWidget {
-  final MockApiService apiService;
   final AuthProvider authProvider;
+  final CoreApiService coreService;
 
   const MyApp({
     super.key,
-    required this.apiService,
     required this.authProvider,
+    required this.coreService,
   });
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(
-          value: authProvider,
-        ),
+        ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(
-          create: (context) {
-            final provider = DataProvider(apiService);
+          create: (_) {
+            final provider = DataProvider(coreService);
             provider.loadCatalogs();
             return provider;
           },
         ),
         ChangeNotifierProvider(
-          create: (_) => CrisisProvider(apiService),
+          create: (_) => CrisisProvider(coreService),
         ),
         ChangeNotifierProvider(
           create: (_) => VictoryProvider(),

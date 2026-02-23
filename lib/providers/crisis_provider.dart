@@ -5,14 +5,14 @@ import '../services/base_api_service.dart';
 import '../services/local_database_service.dart';
 
 class CrisisProvider extends ChangeNotifier {
-  final BaseApiService _apiService;
+  final CoreApiService _coreService;
 
   Crisis? _currentCrisis;
   Capsule? _recommendedCapsule;
   bool _isLoading = false;
   String? _errorMessage;
 
-  CrisisProvider(this._apiService);
+  CrisisProvider(this._coreService);
 
   Crisis? get currentCrisis => _currentCrisis;
   Capsule? get recommendedCapsule => _recommendedCapsule;
@@ -25,7 +25,7 @@ class CrisisProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _apiService.createCrisis(emotionName);
+      final result = await _coreService.createCrisis(emotionName);
       _currentCrisis = result['crisis'] as Crisis;
       _recommendedCapsule = result['capsule'] as Capsule?;
 
@@ -46,7 +46,7 @@ class CrisisProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _apiService.updateCrisis(
+      await _coreService.updateCrisis(
         _currentCrisis!.id,
         evaluation: evaluation,
         breathingCompleted: breathingCompleted,

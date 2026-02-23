@@ -8,7 +8,7 @@ import '../models/crisis.dart';
 import '../models/victory.dart';
 import '../models/dashboard_data.dart';
 
-class MockApiService implements BaseApiService {
+class MockApiService implements AuthApiService, CoreApiService {
   @override
   Future<User> login(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1));

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../config/theme.dart';
 import '../../providers/victory_provider.dart';
 import '../../widgets/app_drawer.dart';
 
@@ -49,7 +51,7 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Victoria añadida'),
-                    backgroundColor: Color(0xFF22C55E),
+                    backgroundColor: AppTheme.successGreen,
                     duration: Duration(seconds: 1),
                   ),
                 );
@@ -65,11 +67,14 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
   void _showOptionsSheet(VictoryDefinition def) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) => SafeArea(
         child: Wrap(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               child: Text(
                 def.name,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -79,7 +84,7 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.edit, color: Color(0xFF5EEAD4)),
+              leading: const Icon(Icons.edit_rounded, color: AppTheme.primary),
               title: const Text('Cambiar nombre'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -87,13 +92,15 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete, color: Color(0xFFEF4444)),
+              leading:
+                  const Icon(Icons.delete_rounded, color: AppTheme.errorRed),
               title: const Text('Eliminar'),
               onTap: () {
                 Navigator.pop(ctx);
                 _confirmDelete(def);
               },
             ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -145,7 +152,7 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: AppTheme.errorRed,
             ),
             onPressed: () {
               context.read<VictoryProvider>().deleteDefinition(def.id);
@@ -163,104 +170,223 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
     final provider = context.watch<VictoryProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mis Victorias'),
-        actions: const [AppDrawerButton()],
-      ),
       endDrawer: const AppDrawer(),
-      body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Registra una victoria hoy',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Marca las acciones positivas que completaste',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Column(
-                      children: [
-                        ...provider.definitions.map((def) {
-                          final isChecked =
-                              provider.todayChecked.contains(def.id);
-                          return GestureDetector(
-                            onLongPress: () => _showOptionsSheet(def),
-                            child: CheckboxListTile(
-                              title: Text(def.name),
-                              value: isChecked,
-                              onChanged: (value) {
-                                provider.toggleCheck(def.id);
-                                if (value == true) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('¡Bien hecho! 🎉'),
-                                      backgroundColor: Color(0xFF22C55E),
-                                      duration: Duration(seconds: 1),
-                                    ),
-                                  );
-                                }
-                              },
-                              secondary: Icon(
-                                isChecked
-                                    ? Icons.check_circle
-                                    : Icons.circle_outlined,
-                                color: isChecked
-                                    ? const Color(0xFF22C55E)
-                                    : Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                          );
-                        }),
-                        const Divider(height: 1),
-                        TextButton.icon(
-                          onPressed: _showAddDialog,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Añadir nueva victoria'),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF6C63FF), Color(0xFF9F7AEA)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Mis Victorias',
+                      style: GoogleFonts.nunito(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const AppDrawerButton(),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.background,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(32),
+                      topRight: Radius.circular(32),
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Historial',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  provider.history.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32.0),
-                            child: Text(
-                              'No hay victorias registradas aún',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
+                  child: provider.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Registra una victoria hoy',
+                                style:
+                                    Theme.of(context).textTheme.headlineMedium,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Marca las acciones positivas que completaste',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                              const SizedBox(height: 20),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [AppTheme.cardShadow],
+                                ),
+                                child: Column(
+                                  children: [
+                                    ...provider.definitions
+                                        .asMap()
+                                        .entries
+                                        .map((entry) {
+                                      final def = entry.value;
+                                      final isChecked = provider.todayChecked
+                                          .contains(def.id);
+                                      return GestureDetector(
+                                        onLongPress: () =>
+                                            _showOptionsSheet(def),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            border: entry.key <
+                                                    provider.definitions
+                                                            .length -
+                                                        1
+                                                ? Border(
+                                                    bottom: BorderSide(
+                                                      color: AppTheme.textLight
+                                                          .withValues(
+                                                              alpha: 0.1),
+                                                    ),
+                                                  )
+                                                : null,
+                                          ),
+                                          child: CheckboxListTile(
+                                            title: Text(
+                                              def.name,
+                                              style: GoogleFonts.nunito(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                                decoration: isChecked
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                                color: isChecked
+                                                    ? AppTheme.textLight
+                                                    : AppTheme.textDark,
+                                              ),
+                                            ),
+                                            value: isChecked,
+                                            onChanged: (value) {
+                                              provider.toggleCheck(def.id);
+                                              if (value == true) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content:
+                                                        Text('¡Bien hecho! 🎉'),
+                                                    backgroundColor:
+                                                        AppTheme.successGreen,
+                                                    duration:
+                                                        Duration(seconds: 1),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            secondary: AnimatedContainer(
+                                              duration: const Duration(
+                                                  milliseconds: 300),
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                gradient: isChecked
+                                                    ? AppTheme.mintGradient
+                                                    : null,
+                                                color: isChecked
+                                                    ? null
+                                                    : AppTheme.textLight
+                                                        .withValues(alpha: 0.1),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                isChecked
+                                                    ? Icons.check_rounded
+                                                    : Icons.circle_outlined,
+                                                color: isChecked
+                                                    ? Colors.white
+                                                    : AppTheme.textLight,
+                                                size: 20,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                    Divider(
+                                      height: 1,
+                                      color: AppTheme.textLight
+                                          .withValues(alpha: 0.1),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: _showAddDialog,
+                                      icon: const Icon(Icons.add_rounded),
+                                      label:
+                                          const Text('Añadir nueva victoria'),
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+                              Text(
+                                'Historial',
+                                style:
+                                    Theme.of(context).textTheme.headlineMedium,
+                              ),
+                              const SizedBox(height: 16),
+                              provider.history.isEmpty
+                                  ? Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(32.0),
+                                        child: Column(
+                                          children: [
+                                            Icon(
+                                              Icons.emoji_events_outlined,
+                                              size: 48,
+                                              color: AppTheme.textLight
+                                                  .withValues(alpha: 0.4),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'No hay victorias registradas aún',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      itemCount: provider.history.length,
+                                      separatorBuilder: (context, index) =>
+                                          const SizedBox(height: 10),
+                                      itemBuilder: (context, index) {
+                                        final log = provider.history[index];
+                                        return _VictoryCard(log: log);
+                                      },
+                                    ),
+                            ],
                           ),
-                        )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: provider.history.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final log = provider.history[index];
-                            return _VictoryCard(log: log);
-                          },
                         ),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -285,25 +411,37 @@ class _VictoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [AppTheme.cardShadow],
+      ),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF5EEAD4).withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
+            gradient: AppTheme.primaryGradient,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(
-            Icons.emoji_events,
-            color: Color(0xFF5EEAD4),
+            Icons.emoji_events_rounded,
+            color: Colors.white,
+            size: 22,
           ),
         ),
         title: Text(
           log.name,
-          style: Theme.of(context).textTheme.titleMedium,
+          style: GoogleFonts.nunito(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        subtitle: Text(_formatDate(log.loggedDate)),
+        subtitle: Text(
+          _formatDate(log.loggedDate),
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
       ),
     );
   }

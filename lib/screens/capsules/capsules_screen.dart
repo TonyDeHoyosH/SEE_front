@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../config/theme.dart';
 import '../../models/emotion.dart';
 import '../../providers/data_provider.dart';
 import '../../models/capsule.dart';
-import '../../services/mock_api_service.dart';
+import '../../services/core_api_service.dart';
 import '../../widgets/app_drawer.dart';
 import 'capsule_detail_screen.dart';
 import 'create_capsule_screen.dart';
@@ -29,7 +31,7 @@ class _CapsulesScreenState extends State<CapsulesScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final capsules = await MockApiService().getCapsules();
+      final capsules = await HttpCoreApiService().getCapsules();
       setState(() {
         _capsules = capsules;
       });
@@ -58,55 +60,120 @@ class _CapsulesScreenState extends State<CapsulesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mis Cápsulas'),
-        actions: const [AppDrawerButton()],
-      ),
       endDrawer: const AppDrawer(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToCreate,
-        child: const Icon(Icons.add),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: AppTheme.primaryGradient,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primary.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          onPressed: _navigateToCreate,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: const Icon(Icons.add_rounded),
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _capsules.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.lightbulb_outline,
-                          size: 64,
-                          color: Color(0xFF64748B),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No tienes cápsulas aún',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Crea una cápsula personalizada con el botón +',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF6C63FF), Color(0xFF9F7AEA)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Mis Cápsulas',
+                      style: GoogleFonts.nunito(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const AppDrawerButton(),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.background,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(32),
+                      topRight: Radius.circular(32),
                     ),
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: _capsules.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final capsule = _capsules[index];
-                    final emotions = context.read<DataProvider>().emotions;
-                    return _CapsuleCard(capsule: capsule, emotions: emotions);
-                  },
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _capsules.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(32.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.auto_awesome_outlined,
+                                      size: 64,
+                                      color: AppTheme.textLight
+                                          .withValues(alpha: 0.4),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No tienes cápsulas aún',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Crea una cápsula personalizada con el botón +',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding:
+                                  const EdgeInsets.fromLTRB(20, 24, 20, 100),
+                              itemCount: _capsules.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final capsule = _capsules[index];
+                                final emotions =
+                                    context.read<DataProvider>().emotions;
+                                return _CapsuleCard(
+                                    capsule: capsule, emotions: emotions);
+                              },
+                            ),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -130,6 +197,10 @@ class _CapsuleCardState extends State<_CapsuleCard> {
     _isActive = widget.capsule.isActive;
   }
 
+  LinearGradient get _typeGradient => widget.capsule.type == 'audio'
+      ? AppTheme.accentGradient
+      : AppTheme.mintGradient;
+
   @override
   Widget build(BuildContext context) {
     final emotionName = widget.emotions
@@ -138,10 +209,14 @@ class _CapsuleCardState extends State<_CapsuleCard> {
             .firstOrNull ??
         'Emoción ${widget.capsule.emotionId}';
 
-    return Card(
-      elevation: 2,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [AppTheme.cardShadow],
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: () {
           Navigator.push(
             context,
@@ -154,28 +229,35 @@ class _CapsuleCardState extends State<_CapsuleCard> {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(
-                    widget.capsule.type == 'audio'
-                        ? Icons.mic
-                        : Icons.text_fields,
-                    size: 18,
-                    color: widget.capsule.type == 'audio'
-                        ? const Color(0xFFFB923C)
-                        : const Color(0xFF5EEAD4),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: _typeGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      widget.capsule.type == 'audio'
+                          ? Icons.mic_rounded
+                          : Icons.text_fields_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       widget.capsule.title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: GoogleFonts.nunito(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textDark,
+                      ),
                     ),
                   ),
                   Switch(
@@ -197,7 +279,7 @@ class _CapsuleCardState extends State<_CapsuleCard> {
                 ],
               ),
               if (widget.capsule.type == 'texto') ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   widget.capsule.content,
                   style: Theme.of(context).textTheme.bodyMedium,
@@ -205,22 +287,29 @@ class _CapsuleCardState extends State<_CapsuleCard> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ] else ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   'Cápsula de audio',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF94A3B8),
                         fontStyle: FontStyle.italic,
                       ),
                 ),
               ],
               const SizedBox(height: 12),
-              Chip(
-                label: Text(emotionName),
-                backgroundColor: const Color(0xFF5EEAD4).withValues(alpha: 0.2),
-                labelStyle: const TextStyle(
-                  color: Color(0xFF475569),
-                  fontSize: 12,
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  emotionName,
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                  ),
                 ),
               ),
             ],

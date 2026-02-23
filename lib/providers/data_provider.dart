@@ -6,7 +6,7 @@ import '../models/dashboard_data.dart';
 import '../services/base_api_service.dart';
 
 class DataProvider extends ChangeNotifier {
-  final BaseApiService _apiService;
+  final CoreApiService _coreService;
 
   List<Emotion> _emotions = [];
   List<VictoryType> _victoryTypes = [];
@@ -16,7 +16,7 @@ class DataProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
-  DataProvider(this._apiService);
+  DataProvider(this._coreService);
 
   List<Emotion> get emotions => _emotions;
   List<VictoryType> get victoryTypes => _victoryTypes;
@@ -31,7 +31,7 @@ class DataProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final catalogs = await _apiService.getCatalogs();
+      final catalogs = await _coreService.getCatalogs();
 
       _emotions = (catalogs['emotions'] as List)
           .map((json) => Emotion.fromJson(json as Map<String, dynamic>))
@@ -60,7 +60,7 @@ class DataProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _dashboardData = await _apiService.getDashboard();
+      _dashboardData = await _coreService.getDashboard();
       _isLoading = false;
       notifyListeners();
     } catch (e) {

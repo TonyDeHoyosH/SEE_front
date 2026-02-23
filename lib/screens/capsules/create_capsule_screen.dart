@@ -5,7 +5,7 @@ import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../providers/data_provider.dart';
-import '../../services/mock_api_service.dart';
+import '../../services/core_api_service.dart';
 import '../../services/local_database_service.dart';
 
 class CreateCapsuleScreen extends StatefulWidget {
@@ -63,8 +63,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
           : _titleController.text.trim();
 
       if (_capsuleType == 'texto') {
-        final apiService = MockApiService();
-        await apiService.createCapsule(
+        await HttpCoreApiService().createCapsule(
           title: title,
           content: _contentController.text.trim(),
           emotionId: _selectedEmotionId!,
