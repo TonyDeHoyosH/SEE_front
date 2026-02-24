@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../config/theme.dart';
 import '../../providers/victory_provider.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/glass_card.dart';
 
 class VictoriesScreen extends StatefulWidget {
   const VictoriesScreen({super.key});
@@ -67,24 +68,26 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
   void _showOptionsSheet(VictoryDefinition def) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       builder: (ctx) => SafeArea(
         child: Wrap(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
               child: Text(
                 def.name,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: AppTheme.lightTheme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.edit_rounded, color: AppTheme.primary),
+              leading:
+                  const Icon(Icons.edit_rounded, color: AppTheme.accentPrimary),
               title: const Text('Cambiar nombre'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -100,7 +103,7 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
                 _confirmDelete(def);
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -170,223 +173,182 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
     final provider = context.watch<VictoryProvider>();
 
     return Scaffold(
-      endDrawer: const AppDrawer(),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF6C63FF), Color(0xFF9F7AEA)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
+      backgroundColor: Colors.transparent, // Global gradient shows through
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Mis Victorias',
-                      style: GoogleFonts.nunito(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Mis Victorias',
+                    style: AppTheme.lightTheme.textTheme.headlineMedium,
+                  ),
+                  const AppDrawerButton(),
+                ],
+              ),
+              const SizedBox(height: 28),
+              if (provider.isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else ...[
+                Text(
+                  'Registra una victoria hoy',
+                  style: AppTheme.lightTheme.textTheme.headlineMedium?.copyWith(
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Marca las acciones positivas que completaste',
+                  style: AppTheme.lightTheme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 24),
+                GlassCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      ...provider.definitions.asMap().entries.map((entry) {
+                        final def = entry.value;
+                        final isChecked =
+                            provider.todayChecked.contains(def.id);
+                        return GestureDetector(
+                          onLongPress: () => _showOptionsSheet(def),
+                          onTap: () {
+                            final wasChecked = isChecked;
+                            provider.toggleCheck(def.id);
+                            if (!wasChecked) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('¡Bien hecho! 🎉'),
+                                  backgroundColor: AppTheme.successGreen,
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border:
+                                  entry.key < provider.definitions.length - 1
+                                      ? Border(
+                                          bottom: BorderSide(
+                                            color: AppTheme.textSecondary
+                                                .withValues(alpha: 0.1),
+                                          ),
+                                        )
+                                      : null,
+                            ),
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                def.name,
+                                style: GoogleFonts.inter(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  decoration: isChecked
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  color: isChecked
+                                      ? AppTheme.textSecondary
+                                      : AppTheme.textPrimary,
+                                ),
+                              ),
+                              trailing: AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isChecked
+                                      ? AppTheme.accentPrimary
+                                      : Colors.transparent,
+                                  border: isChecked
+                                      ? null
+                                      : Border.all(
+                                          color: AppTheme.accentLight,
+                                          width: 2,
+                                        ),
+                                ),
+                                child: isChecked
+                                    ? const Icon(
+                                        Icons.check_rounded,
+                                        color: Colors.white,
+                                        size: 18,
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      if (provider.definitions.isNotEmpty)
+                        Divider(
+                            color:
+                                AppTheme.textSecondary.withValues(alpha: 0.1)),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.accentButton,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: _showAddDialog,
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Añadir nueva victoria',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  'Historial',
+                  style: AppTheme.lightTheme.textTheme.headlineMedium?.copyWith(
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (provider.history.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.emoji_events_outlined,
+                            size: 48,
+                            color:
+                                AppTheme.textSecondary.withValues(alpha: 0.4),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No hay victorias registradas aún',
+                            style: AppTheme.lightTheme.textTheme.bodyMedium,
+                          ),
+                        ],
                       ),
                     ),
-                    const AppDrawerButton(),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.background,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
-                    ),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: provider.history.take(7).length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final log = provider.history.take(7).toList()[index];
+                      return _VictoryCard(log: log);
+                    },
                   ),
-                  child: provider.isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Registra una victoria hoy',
-                                style:
-                                    Theme.of(context).textTheme.headlineMedium,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Marca las acciones positivas que completaste',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                              const SizedBox(height: 20),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [AppTheme.cardShadow],
-                                ),
-                                child: Column(
-                                  children: [
-                                    ...provider.definitions
-                                        .asMap()
-                                        .entries
-                                        .map((entry) {
-                                      final def = entry.value;
-                                      final isChecked = provider.todayChecked
-                                          .contains(def.id);
-                                      return GestureDetector(
-                                        onLongPress: () =>
-                                            _showOptionsSheet(def),
-                                        onTap: () {
-                                          final wasChecked = isChecked;
-                                          provider.toggleCheck(def.id);
-                                          if (!wasChecked) {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              const SnackBar(
-                                                content:
-                                                    Text('¡Bien hecho! 🎉'),
-                                                backgroundColor:
-                                                    AppTheme.successGreen,
-                                                duration: Duration(seconds: 1),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            border: entry.key <
-                                                    provider.definitions
-                                                            .length -
-                                                        1
-                                                ? Border(
-                                                    bottom: BorderSide(
-                                                      color: AppTheme.textLight
-                                                          .withValues(
-                                                              alpha: 0.1),
-                                                    ),
-                                                  )
-                                                : null,
-                                          ),
-                                          child: ListTile(
-                                            title: Text(
-                                              def.name,
-                                              style: GoogleFonts.nunito(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                                decoration: isChecked
-                                                    ? TextDecoration.lineThrough
-                                                    : null,
-                                                color: isChecked
-                                                    ? AppTheme.textLight
-                                                    : AppTheme.textDark,
-                                              ),
-                                            ),
-                                            trailing: AnimatedContainer(
-                                              duration: const Duration(
-                                                  milliseconds: 250),
-                                              width: 26,
-                                              height: 26,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                gradient: isChecked
-                                                    ? AppTheme.mintGradient
-                                                    : null,
-                                                border: isChecked
-                                                    ? null
-                                                    : Border.all(
-                                                        color: Colors
-                                                            .grey.shade300,
-                                                        width: 2,
-                                                      ),
-                                              ),
-                                              child: isChecked
-                                                  ? const Icon(
-                                                      Icons.check_rounded,
-                                                      color: Colors.white,
-                                                      size: 16,
-                                                    )
-                                                  : const SizedBox.shrink(),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }),
-                                    Divider(
-                                      height: 1,
-                                      color: AppTheme.textLight
-                                          .withValues(alpha: 0.1),
-                                    ),
-                                    TextButton.icon(
-                                      onPressed: _showAddDialog,
-                                      icon: const Icon(Icons.add_rounded),
-                                      label:
-                                          const Text('Añadir nueva victoria'),
-                                    ),
-                                    const SizedBox(height: 4),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 32),
-                              Text(
-                                'Historial',
-                                style:
-                                    Theme.of(context).textTheme.headlineMedium,
-                              ),
-                              const SizedBox(height: 16),
-                              provider.history.isEmpty
-                                  ? Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(32.0),
-                                        child: Column(
-                                          children: [
-                                            Icon(
-                                              Icons.emoji_events_outlined,
-                                              size: 48,
-                                              color: AppTheme.textLight
-                                                  .withValues(alpha: 0.4),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            Text(
-                                              'No hay victorias registradas aún',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    )
-                                  : ListView.separated(
-                                      shrinkWrap: true,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      itemCount:
-                                          provider.history.take(7).length,
-                                      separatorBuilder: (context, index) =>
-                                          const SizedBox(height: 10),
-                                      itemBuilder: (context, index) {
-                                        final log = provider.history
-                                            .take(7)
-                                            .toList()[index];
-                                        return _VictoryCard(log: log);
-                                      },
-                                    ),
-                            ],
-                          ),
-                        ),
-                ),
-              ),
+              ],
             ],
           ),
         ),
@@ -415,36 +377,33 @@ class _VictoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [AppTheme.cardShadow],
-      ),
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        contentPadding: EdgeInsets.zero,
         leading: Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(12),
+            color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(
             Icons.emoji_events_rounded,
-            color: Colors.white,
-            size: 22,
+            color: AppTheme.accentPrimary,
+            size: 24,
           ),
         ),
         title: Text(
           log.name,
-          style: GoogleFonts.nunito(
-            fontSize: 15,
+          style: GoogleFonts.inter(
+            fontSize: 16,
             fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
           ),
         ),
         subtitle: Text(
           _formatDate(log.loggedDate),
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: AppTheme.lightTheme.textTheme.bodyMedium,
         ),
       ),
     );

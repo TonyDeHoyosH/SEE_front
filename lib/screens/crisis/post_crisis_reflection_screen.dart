@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/crisis_provider.dart';
+import '../../widgets/glass_card.dart';
+import '../../config/theme.dart';
 
 class PostCrisisReflectionScreen extends StatefulWidget {
   final String crisisId;
@@ -115,10 +117,10 @@ class _PostCrisisReflectionScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Colors.transparent, // Global background applied
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: const Color(0xFFF1F5F9),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         automaticallyImplyLeading: false,
         title: const Text('Reflexión'),
       ),
@@ -127,21 +129,19 @@ class _PostCrisisReflectionScreenState
         child: ListView(
           padding: const EdgeInsets.all(24.0),
           children: [
-            Container(
+            GlassCard(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF334155),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
+              borderRadius: 12,
+              child: Row(
                 children: [
-                  Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 20),
-                  SizedBox(width: 12),
+                  Icon(Icons.lock_outline,
+                      color: AppTheme.textSecondary, size: 20),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Esta información es solo para ti y, si quieres, para compartir con tu terapeuta.',
                       style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: AppTheme.textSecondary,
                         fontSize: 13,
                         height: 1.4,
                       ),
@@ -151,33 +151,19 @@ class _PostCrisisReflectionScreenState
               ),
             ),
             const SizedBox(height: 32),
-            const Text(
+            Text(
               '¿Qué pasó antes de la crisis?',
-              style: TextStyle(
-                color: Color(0xFFF1F5F9),
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _triggerController,
               minLines: 2,
               maxLines: 4,
-              style: const TextStyle(color: Color(0xFFF1F5F9)),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Ej: Discutí con mi hermano',
-                hintStyle: const TextStyle(color: Color(0xFF64748B)),
-                filled: true,
-                fillColor: const Color(0xFF334155),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF5EEAD4)),
-                ),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -216,26 +202,15 @@ class _PostCrisisReflectionScreenState
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _handleSave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5EEAD4),
-                  foregroundColor: const Color(0xFF1E293B),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
                 child: _isSaving
                     ? const SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text(
-                        'Guardar Reflexión',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    : const Padding(
+                        padding: EdgeInsets.all(4.0),
+                        child: Text('Guardar Reflexión'),
                       ),
               ),
             ),
@@ -243,13 +218,7 @@ class _PostCrisisReflectionScreenState
             Center(
               child: TextButton(
                 onPressed: _isSaving ? null : _handleSkip,
-                child: const Text(
-                  'Omitir por ahora',
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 14,
-                  ),
-                ),
+                child: const Text('Omitir por ahora'),
               ),
             ),
             const SizedBox(height: 24),
@@ -272,11 +241,9 @@ class _PostCrisisReflectionScreenState
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFFF1F5F9),
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: 8),
         ...options.map((option) {
@@ -286,9 +253,9 @@ class _PostCrisisReflectionScreenState
             onChanged: onChanged,
             title: Text(
               option,
-              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-            activeColor: const Color(0xFF5EEAD4),
+            activeColor: AppTheme.accentPrimary,
             dense: true,
             contentPadding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
@@ -299,21 +266,8 @@ class _PostCrisisReflectionScreenState
             padding: const EdgeInsets.only(left: 16, top: 4),
             child: TextFormField(
               controller: otherController,
-              style: const TextStyle(color: Color(0xFFF1F5F9), fontSize: 14),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Especifica...',
-                hintStyle: const TextStyle(color: Color(0xFF64748B)),
-                filled: true,
-                fillColor: const Color(0xFF334155),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
               ),
             ),
           ),

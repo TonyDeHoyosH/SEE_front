@@ -1,0 +1,13 @@
+﻿Analyzing Front_SEE...                                          
+
+   info - Use 'const' with the constructor to improve performance - lib\config\theme.dart:52:20 - prefer_const_constructors
+warning - Unused import: 'dart:io' - lib\screens\capsules\create_capsule_screen.dart:1:8 - unused_import
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\capsules\create_capsule_screen.dart:588:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\capsules\create_capsule_screen.dart:589:23 - deprecated_member_use
+warning - A value for optional parameter 'disabled' isn't ever given - lib\screens\capsules\create_capsule_screen.dart:638:10 - unused_element_parameter
+   info - 'onPopInvoked' is deprecated and shouldn't be used. Use onPopInvokedWithResult instead. This feature was deprecated after v3.22.0-12.0.pre - lib\screens\crisis\crisis_emotion_screen.dart:18:7 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\crisis\post_crisis_reflection_screen.dart:285:13 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\crisis\post_crisis_reflection_screen.dart:286:13 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\services\http_api_service.dart:114:7 - curly_braces_in_flow_control_structures
+warning - The value of the local variable 'rect' isn't used - lib\widgets\custom_progress_ring.dart:84:16 - unused_local_variable
+

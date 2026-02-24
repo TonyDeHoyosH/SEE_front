@@ -83,6 +83,14 @@ class MyApp extends StatelessWidget {
             title: 'SEE',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
+            builder: (context, child) {
+              return Container(
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.globalBackgroundGradient,
+                ),
+                child: child,
+              );
+            },
             home: authProvider.isAuthenticated
                 ? const HomeScreen()
                 : const LoginScreen(),

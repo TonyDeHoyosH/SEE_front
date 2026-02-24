@@ -7,6 +7,7 @@ import '../../providers/data_provider.dart';
 import '../../models/capsule.dart';
 import '../../services/base_api_service.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/glass_card.dart';
 import 'capsule_detail_screen.dart';
 import 'create_capsule_screen.dart';
 
@@ -60,118 +61,85 @@ class _CapsulesScreenState extends State<CapsulesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      endDrawer: const AppDrawer(),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
+      backgroundColor: Colors.transparent, // Uses global background
+      floatingActionButton: Padding(
+        padding:
+            const EdgeInsets.only(bottom: 90.0), // Above the floating navbar
         child: FloatingActionButton(
           onPressed: _navigateToCreate,
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          child: const Icon(Icons.add_rounded),
+          elevation: 4,
+          backgroundColor: AppTheme.accentButton,
+          child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF6C63FF), Color(0xFF9F7AEA)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Mis Cápsulas',
-                      style: GoogleFonts.nunito(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const AppDrawerButton(),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.background,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
-                    ),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Mis Cápsulas',
+                    style: AppTheme.lightTheme.textTheme.headlineMedium,
                   ),
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _capsules.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.auto_awesome_outlined,
-                                      size: 64,
-                                      color: AppTheme.textLight
-                                          .withValues(alpha: 0.4),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'No tienes cápsulas aún',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Crea una cápsula personalizada con el botón +',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : ListView.separated(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 24, 20, 100),
-                              itemCount: _capsules.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (context, index) {
-                                final capsule = _capsules[index];
-                                final emotions =
-                                    context.read<DataProvider>().emotions;
-                                return _CapsuleCard(
-                                    capsule: capsule, emotions: emotions);
-                              },
-                            ),
-                ),
+                  const AppDrawerButton(),
+                ],
               ),
-            ],
-          ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _capsules.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome_outlined,
+                                  size: 64,
+                                  color: AppTheme.textSecondary
+                                      .withValues(alpha: 0.4),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No tienes cápsulas aún',
+                                  style: AppTheme
+                                      .lightTheme.textTheme.headlineMedium
+                                      ?.copyWith(
+                                    fontSize: 20,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Crea una cápsula personalizada con el botón +',
+                                  style:
+                                      AppTheme.lightTheme.textTheme.bodyMedium,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 180),
+                          itemCount: _capsules.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 16),
+                          itemBuilder: (context, index) {
+                            final capsule = _capsules[index];
+                            final emotions =
+                                context.read<DataProvider>().emotions;
+                            return _CapsuleCard(
+                                capsule: capsule, emotions: emotions);
+                          },
+                        ),
+            ),
+          ],
         ),
       ),
     );
@@ -197,9 +165,9 @@ class _CapsuleCardState extends State<_CapsuleCard> {
     _isActive = widget.capsule.isActive;
   }
 
-  LinearGradient get _typeGradient => widget.capsule.type == 'audio'
-      ? AppTheme.accentGradient
-      : AppTheme.mintGradient;
+  Color get _iconColor => widget.capsule.type == 'audio'
+      ? AppTheme.accentPrimary
+      : const Color(0xFFC4A8E8);
 
   @override
   Widget build(BuildContext context) {
@@ -209,112 +177,104 @@ class _CapsuleCardState extends State<_CapsuleCard> {
             .firstOrNull ??
         'Emoción ${widget.capsule.emotionId}';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [AppTheme.cardShadow],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CapsuleDetailScreen(
-                capsule: widget.capsule,
-                emotionName: emotionName,
-              ),
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CapsuleDetailScreen(
+              capsule: widget.capsule,
+              emotionName: emotionName,
             ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      gradient: _typeGradient,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      widget.capsule.type == 'audio'
-                          ? Icons.mic_rounded
-                          : Icons.text_fields_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.capsule.title,
-                      style: GoogleFonts.nunito(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textDark,
-                      ),
-                    ),
-                  ),
-                  Switch(
-                    value: _isActive,
-                    onChanged: (value) {
-                      setState(() {
-                        _isActive = value;
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(_isActive
-                              ? 'Cápsula activada'
-                              : 'Cápsula desactivada'),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              if (widget.capsule.type == 'texto') ...[
-                const SizedBox(height: 10),
-                Text(
-                  widget.capsule.content,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ] else ...[
-                const SizedBox(height: 10),
-                Text(
-                  'Cápsula de audio',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontStyle: FontStyle.italic,
-                      ),
-                ),
-              ],
-              const SizedBox(height: 12),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
+                  color: _iconColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                child: Icon(
+                  widget.capsule.type == 'audio'
+                      ? Icons.mic_rounded
+                      : Icons.text_fields_rounded,
+                  size: 24,
+                  color: _iconColor,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
                 child: Text(
-                  emotionName,
-                  style: GoogleFonts.nunito(
-                    fontSize: 12,
+                  widget.capsule.title,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.primary,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
+              ),
+              Switch(
+                value: _isActive,
+                onChanged: (value) {
+                  setState(() {
+                    _isActive = value;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(_isActive
+                          ? 'Cápsula activada'
+                          : 'Cápsula desactivada'),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                },
               ),
             ],
           ),
-        ),
+          if (widget.capsule.type == 'texto') ...[
+            const SizedBox(height: 16),
+            Text(
+              widget.capsule.content,
+              style: AppTheme.lightTheme.textTheme.bodyMedium,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ] else ...[
+            const SizedBox(height: 16),
+            Text(
+              'Grabación de voz guardada',
+              style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceWhite,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppTheme.accentLight.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Text(
+              emotionName,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.accentPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

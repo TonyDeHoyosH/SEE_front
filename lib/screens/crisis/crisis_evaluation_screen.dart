@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/crisis_provider.dart';
 import '../../providers/data_provider.dart';
+import '../../widgets/glass_card.dart';
+import '../../config/theme.dart';
 import 'post_crisis_reflection_screen.dart';
 
 class CrisisEvaluationScreen extends StatelessWidget {
@@ -15,15 +17,22 @@ class CrisisEvaluationScreen extends StatelessWidget {
     final evaluations = dataProvider.evaluations;
 
     return Scaffold(
+      backgroundColor: Colors.transparent, // Global background applied
       appBar: AppBar(
-        title: const Column(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Evaluación'),
+            const Text('Evaluación'),
             Text(
               'Paso 4 de 4',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+                color: AppTheme.textSecondary.withValues(alpha: 0.8),
+              ),
             ),
           ],
         ),
@@ -151,8 +160,9 @@ class _EvaluationOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 16.0,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),

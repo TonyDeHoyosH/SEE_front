@@ -2,199 +2,200 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const Color primary = Color(0xFF6C63FF);
-  static const Color primaryDark = Color(0xFF5A52D5);
-  static const Color secondary = Color(0xFF00D9A6);
-  static const Color accent = Color(0xFFFF6B9D);
-  static const Color background = Color(0xFFF0F4FF);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color textDark = Color(0xFF2D3142);
-  static const Color textLight = Color(0xFF9CA3AF);
+  // TOKENS DE COLOR BASE
+  static const Color backgroundColor = Color(0xFFFDF6F0);
+  static const Color backgroundMid = Color(0xFFF8ECF3);
+  static const Color backgroundEdge = Color(0xFFEFE0F5);
+
+  static const Color accentPrimary = Color(0xFFB89FD8);
+  static const Color accentLight = Color(0xFFD9C8F0);
+  static const Color accentGlow = Color(0xFFCBACEC);
+  static const Color accentButton = Color(0xFF9B7DC8);
+
+  static const Color textPrimary = Color(0xFF2D2040);
+  static const Color textSecondary = Color(0xFF7A6A8A);
+  static const Color textOnDark = Color(0xFFFFFFFF);
+
+  static const Color surfaceWhite = Color(0xFFFFFAF7);
+  static const Color navbarBg = Color(0xFF1A1025);
+
   static const Color errorRed = Color(0xFFEF4444);
   static const Color successGreen = Color(0xFF22C55E);
   static const Color warningOrange = Color(0xFFFB923C);
 
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF6C63FF), Color(0xFF9F7AEA)],
+    colors: [Color(0xFFD9C8F0), Color(0xFFC4A8E8)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFFFF6B9D), Color(0xFFFF8A80)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const LinearGradient mintGradient = LinearGradient(
-    colors: [Color(0xFF00D9A6), Color(0xFF5EEAD4)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+  static const RadialGradient globalBackgroundGradient = RadialGradient(
+    center: Alignment(0.0, -0.3),
+    radius: 1.2,
+    colors: [
+      Color(0xFFFEF0E8), // centro: durazno cálido
+      Color(0xFFF5E8F2), // medio: rosa suave
+      Color(0xFFEDE0F5), // borde: lavanda pálido
+    ],
+    stops: [0.0, 0.55, 1.0],
   );
 
   static BoxShadow softShadow = BoxShadow(
-    color: primary.withValues(alpha: 0.15),
+    color: accentPrimary.withValues(alpha: 0.10),
     blurRadius: 20,
     offset: const Offset(0, 8),
-  );
-
-  static BoxShadow cardShadow = BoxShadow(
-    color: primary.withValues(alpha: 0.08),
-    blurRadius: 16,
-    offset: const Offset(0, 4),
   );
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.light(
-        primary: primary,
-        secondary: secondary,
-        surface: surface,
+      colorScheme: const ColorScheme.light(
+        primary: accentButton,
+        secondary: accentLight,
+        surface: Colors.transparent, // So global background shows through
         error: errorRed,
         onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onSurface: textDark,
+        onSecondary: textPrimary,
+        onSurface: textPrimary,
       ),
-      scaffoldBackgroundColor: background,
-      textTheme: GoogleFonts.nunitoTextTheme().copyWith(
-        displayLarge: GoogleFonts.nunito(
-          fontSize: 32,
-          fontWeight: FontWeight.w800,
-          color: textDark,
-        ),
-        displayMedium: GoogleFonts.nunito(
-          fontSize: 28,
+      scaffoldBackgroundColor: Colors.transparent,
+      textTheme: GoogleFonts.interTextTheme().copyWith(
+        displayLarge: GoogleFonts.inter(
+          fontSize: 64,
           fontWeight: FontWeight.w700,
-          color: textDark,
+          color: textPrimary,
+          letterSpacing: -1.5,
         ),
-        displaySmall: GoogleFonts.nunito(
+        displayMedium: GoogleFonts.inter(
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: textPrimary,
+        ),
+        displaySmall: GoogleFonts.inter(
           fontSize: 24,
           fontWeight: FontWeight.w700,
-          color: textDark,
+          color: textPrimary,
         ),
-        headlineMedium: GoogleFonts.nunito(
+        headlineMedium: GoogleFonts.inter(
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          color: textDark,
+          color: textPrimary,
         ),
-        bodyLarge: GoogleFonts.nunito(
+        bodyLarge: GoogleFonts.inter(
           fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: textDark,
+          fontWeight: FontWeight.w400,
+          color: textSecondary,
+          letterSpacing: 0.2, // Subtitles
         ),
-        bodyMedium: GoogleFonts.nunito(
+        bodyMedium: GoogleFonts.inter(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          color: textLight,
+          color: textSecondary,
         ),
-        labelLarge: GoogleFonts.nunito(
+        labelLarge: GoogleFonts.inter(
           fontSize: 16,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
+          backgroundColor: accentButton,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
           elevation: 0,
-          textStyle: GoogleFonts.nunito(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+          shadowColor: accentPrimary.withValues(alpha: 0.4),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primary,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          side: const BorderSide(color: primary, width: 1.5),
+          side: const BorderSide(color: accentPrimary, width: 1.5),
+          foregroundColor: accentButton,
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: surfaceWhite.withValues(alpha: 0.88),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(20),
+          borderSide:
+              BorderSide(color: const Color(0xFFEDD8F0).withValues(alpha: 0.6)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: textLight.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(20),
+          borderSide:
+              BorderSide(color: const Color(0xFFEDD8F0).withValues(alpha: 0.6)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: primary, width: 2),
+          borderRadius: BorderRadius.circular(20),
+          borderSide: const BorderSide(color: accentButton, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: const BorderSide(color: errorRed),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: const BorderSide(color: errorRed, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 18,
+          horizontal: 24,
+          vertical: 20,
         ),
-        hintStyle: GoogleFonts.nunito(
-          color: textLight,
-          fontSize: 14,
+        hintStyle: GoogleFonts.inter(
+          color: textSecondary.withValues(alpha: 0.5),
+          fontSize: 16,
         ),
-        labelStyle: GoogleFonts.nunito(
-          color: textLight,
-          fontSize: 14,
+        labelStyle: GoogleFonts.inter(
+          color: textSecondary,
+          fontSize: 16,
         ),
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: surfaceWhite,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        foregroundColor: textPrimary,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: GoogleFonts.nunito(
+        titleTextStyle: GoogleFonts.inter(
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: textPrimary,
         ),
+        iconTheme: const IconThemeData(color: textPrimary),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: primary,
-        unselectedItemColor: textLight,
+        backgroundColor: Colors
+            .transparent, // Custom floating pill will be used instead mostly
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white.withValues(alpha: 0.75),
         type: BottomNavigationBarType.fixed,
         elevation: 0,
-        selectedLabelStyle: GoogleFonts.nunito(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+        selectedLabelStyle: GoogleFonts.inter(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
         ),
-        unselectedLabelStyle: GoogleFonts.nunito(
-          fontSize: 12,
+        unselectedLabelStyle: GoogleFonts.inter(
+          fontSize: 10,
           fontWeight: FontWeight.w500,
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: primary,
+        backgroundColor: accentButton,
         foregroundColor: Colors.white,
         elevation: 4,
-        shape: CircleBorder(),
+        shape: StadiumBorder(),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return primary;
+          if (states.contains(WidgetState.selected)) return accentButton;
           return Colors.transparent;
         }),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
@@ -202,23 +203,26 @@ class AppTheme {
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return Colors.white;
-          return textLight;
+          return textSecondary;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return secondary;
-          return textLight.withValues(alpha: 0.3);
+          if (states.contains(WidgetState.selected)) return accentButton;
+          return textSecondary.withValues(alpha: 0.3);
         }),
       ),
       dividerTheme: DividerThemeData(
-        color: textLight.withValues(alpha: 0.15),
+        color: textSecondary.withValues(alpha: 0.15),
         thickness: 1,
       ),
       dialogTheme: DialogThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: surfaceWhite,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: navbarBg,
+        contentTextStyle: GoogleFonts.inter(color: Colors.white),
       ),
     );
   }
@@ -243,8 +247,10 @@ class GradientButton extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: onPressed != null ? gradient : null,
-        color: onPressed == null ? AppTheme.textLight : null,
-        borderRadius: BorderRadius.circular(16),
+        color: onPressed == null
+            ? AppTheme.textSecondary.withValues(alpha: 0.3)
+            : null,
+        borderRadius: BorderRadius.circular(40), // Stadium
         boxShadow: onPressed != null
             ? [
                 BoxShadow(
@@ -259,9 +265,9 @@ class GradientButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: isLoading ? null : onPressed,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(40),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
             child: Center(
               child: isLoading
                   ? const SizedBox(
@@ -274,9 +280,9 @@ class GradientButton extends StatelessWidget {
                     )
                   : Text(
                       text,
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.inter(
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
@@ -305,21 +311,16 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-      ),
-      child: AppBar(
-        title: Text(title),
-        actions: actions,
-        leading: showBack
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                onPressed: () => Navigator.pop(context),
-              )
-            : null,
-        automaticallyImplyLeading: showBack,
-      ),
+    return AppBar(
+      title: Text(title, style: AppTheme.lightTheme.textTheme.headlineMedium),
+      actions: actions,
+      leading: showBack
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              onPressed: () => Navigator.pop(context),
+            )
+          : null,
+      automaticallyImplyLeading: showBack,
     );
   }
 }

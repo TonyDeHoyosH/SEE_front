@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/crisis_provider.dart';
 import '../../providers/data_provider.dart';
+import '../../widgets/glass_card.dart';
+import '../../config/theme.dart';
 import 'crisis_capsule_screen.dart';
 import 'breathing_screen.dart';
 
@@ -44,15 +46,22 @@ class CrisisEmotionScreen extends StatelessWidget {
         }
       },
       child: Scaffold(
+        backgroundColor: Colors.transparent, // Global background
         appBar: AppBar(
-          title: const Column(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('¿Qué sientes?'),
+              const Text('¿Qué sientes?'),
               Text(
                 'Paso 1 de 4',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                  color: AppTheme.textSecondary.withValues(alpha: 0.8),
+                ),
               ),
             ],
           ),
@@ -168,28 +177,26 @@ class _EmotionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
+    return GlassCard(
+      padding: const EdgeInsets.all(12.0),
+      borderRadius: 16.0,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 48),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                emotion,
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              emoji,
+              style: const TextStyle(fontSize: 48),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              emotion,
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );

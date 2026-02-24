@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
@@ -267,7 +266,10 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
         if (!didPop) _goBack();
       },
       child: Scaffold(
+        backgroundColor: Colors.transparent, // Global background
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: _goBack,

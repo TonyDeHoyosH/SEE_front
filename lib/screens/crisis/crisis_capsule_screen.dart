@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/crisis_provider.dart';
+import '../../widgets/glass_card.dart';
+import '../../config/theme.dart';
 import 'breathing_screen.dart';
 
 class CrisisCapsuleScreen extends StatelessWidget {
@@ -12,15 +14,22 @@ class CrisisCapsuleScreen extends StatelessWidget {
     final capsule = crisisProvider.recommendedCapsule;
 
     return Scaffold(
+      backgroundColor: Colors.transparent, // Global background applied
       appBar: AppBar(
-        title: const Column(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Cápsula para ti'),
+            const Text('Cápsula para ti'),
             Text(
               'Paso 2 de 4',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+                color: AppTheme.textSecondary.withValues(alpha: 0.8),
+              ),
             ),
           ],
         ),
@@ -44,17 +53,13 @@ class CrisisCapsuleScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
                   const SizedBox(height: 16),
-                  Card(
-                    elevation: 0,
-                    color: const Color(0xFFF8FAFC),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text(
-                        capsule.content,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              height: 1.6,
-                            ),
-                      ),
+                  GlassCard(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Text(
+                      capsule.content,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            height: 1.6,
+                          ),
                     ),
                   ),
                   const SizedBox(height: 32),

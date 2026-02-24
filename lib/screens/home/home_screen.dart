@@ -5,6 +5,8 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/local_database_service.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/floating_navbar.dart';
+import '../../widgets/glass_card.dart';
 import '../capsules/capsules_screen.dart';
 import '../victories/victories_screen.dart';
 import '../crisis/crisis_emotion_screen.dart';
@@ -34,43 +36,23 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Scaffold(
-      body: screens[_selectedIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              activeIcon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.emoji_events_outlined),
-              activeIcon: Icon(Icons.emoji_events_rounded),
-              label: 'Victorias',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.auto_awesome_outlined),
-              activeIcon: Icon(Icons.auto_awesome),
-              label: 'Cápsulas',
-            ),
-          ],
-        ),
+      backgroundColor: Colors.transparent,
+      extendBody: true,
+      endDrawer: const AppDrawer(), // Global endDrawer for the flow
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: screens[_selectedIndex],
+          ),
+          FloatingNavbar(
+            currentIndex: _selectedIndex,
+            onTap: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+          ),
+        ],
       ),
     );
   }
@@ -109,154 +91,130 @@ class _DashboardViewState extends State<_DashboardView> {
     final user = authProvider.user;
 
     return Scaffold(
-      endDrawer: const AppDrawer(),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF6C63FF), Color(0xFF9F7AEA)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
+      backgroundColor: Colors.transparent, // Use global gradient
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24,
+              120), // 24dp padding as requested, extra space for navbar
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'SEE',
-                      style: GoogleFonts.nunito(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'SEE',
+                    style: AppTheme.lightTheme.textTheme.headlineMedium,
+                  ),
+                  const AppDrawerButton(),
+                ],
+              ),
+              const SizedBox(height: 28), // 28dp gap
+
+              if (user != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '¡Hola, ${user.nombrePreferido}!',
+                        style: AppTheme.lightTheme.textTheme.displaySmall,
                       ),
-                    ),
-                    const AppDrawerButton(),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Este es tu espacio seguro',
+                        style:
+                            AppTheme.lightTheme.textTheme.bodyLarge?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 32),
+
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '¿Cómo te sientes hoy?',
+                  style: AppTheme.lightTheme.textTheme.headlineMedium?.copyWith(
+                    fontSize: 18,
+                  ),
                 ),
               ),
-              if (user != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Column(
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _FeelingButton(
+                      emoji: '😊',
+                      label: 'Estoy bien',
+                      onTap: widget.onNavigateToVictories,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _FeelingButton(
+                      emoji: '🆘',
+                      label: 'Necesito ayuda',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CrisisEmotionScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              GlassCard(
+                padding: const EdgeInsets.all(24),
+                child: FutureBuilder<Map<String, int>>(
+                  future: _metricsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    }
+
+                    final data =
+                        snapshot.data ?? {'capsules': 0, 'victories': 0};
+
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '¡Hola, ${user.nombrePreferido}! 👋',
-                          style: GoogleFonts.nunito(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                          'Resumen semanal',
+                          style: AppTheme.lightTheme.textTheme.headlineMedium
+                              ?.copyWith(
+                            fontSize: 18,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '¿Cómo te sientes hoy?',
-                          style: GoogleFonts.nunito(
-                            fontSize: 16,
-                            color: Colors.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.background,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _FeelingButton(
-                                emoji: '😊',
-                                label: 'BIEN',
-                                gradient: AppTheme.mintGradient,
-                                onTap: widget.onNavigateToVictories,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _FeelingButton(
-                                emoji: '🆘',
-                                label: 'EN CRISIS',
-                                gradient: AppTheme.accentGradient,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const CrisisEmotionScreen(),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          'Resumen',
-                          style: Theme.of(context).textTheme.headlineMedium,
+                        const SizedBox(height: 20),
+                        _SummaryRow(
+                          icon: Icons.emoji_events_rounded,
+                          title: 'Victorias',
+                          value: '${data['victories']}',
                         ),
                         const SizedBox(height: 16),
-                        FutureBuilder<Map<String, int>>(
-                          future: _metricsFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(32),
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
-
-                            final data = snapshot.data ??
-                                {'capsules': 0, 'victories': 0};
-
-                            return Column(
-                              children: [
-                                _SummaryCard(
-                                  icon: Icons.emoji_events_rounded,
-                                  title: 'Victorias esta semana',
-                                  value: '${data['victories']}',
-                                  gradient: AppTheme.primaryGradient,
-                                ),
-                                const SizedBox(height: 12),
-                                _SummaryCard(
-                                  icon: Icons.auto_awesome,
-                                  title: 'Cápsulas activas',
-                                  value: '${data['capsules']}',
-                                  gradient: AppTheme.mintGradient,
-                                ),
-                              ],
-                            );
-                          },
+                        _SummaryRow(
+                          icon: Icons.auto_awesome,
+                          title: 'Cápsulas activas',
+                          value: '${data['capsules']}',
                         ),
                       ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -270,120 +228,80 @@ class _DashboardViewState extends State<_DashboardView> {
 class _FeelingButton extends StatelessWidget {
   final String emoji;
   final String label;
-  final LinearGradient gradient;
   final VoidCallback onTap;
 
   const _FeelingButton({
     required this.emoji,
     required this.label,
-    required this.gradient,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 28),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradient.colors
-                  .map((c) => c.withValues(alpha: 0.15))
-                  .toList(),
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: gradient.colors.first.withValues(alpha: 0.3),
-              width: 1.5,
-            ),
+    return GlassCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            emoji,
+            style: const TextStyle(fontSize: 40),
           ),
-          child: Column(
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 44),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: GoogleFonts.nunito(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: gradient.colors.first,
-                ),
-              ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _SummaryCard extends StatelessWidget {
+class _SummaryRow extends StatelessWidget {
   final IconData icon;
   final String title;
   final String value;
-  final LinearGradient gradient;
 
-  const _SummaryCard({
+  const _SummaryRow({
     required this.icon,
     required this.title,
     required this.value,
-    required this.gradient,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [AppTheme.cardShadow],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: gradient.colors.first.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 26),
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-              ],
+          child: Icon(icon, color: AppTheme.accentPrimary, size: 24),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            title,
+            style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w500,
             ),
           ),
-        ],
-      ),
+        ),
+        Text(
+          value,
+          style: AppTheme.lightTheme.textTheme.headlineMedium,
+        ),
+      ],
     );
   }
 }

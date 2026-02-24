@@ -110,8 +110,9 @@ class HttpApiService implements AuthApiService, CoreApiService {
       {String? evaluation, bool? breathingCompleted}) async {
     final body = <String, dynamic>{};
     if (evaluation != null) body['evaluation'] = evaluation;
-    if (breathingCompleted != null)
+    if (breathingCompleted != null) {
       body['breathing_completed'] = breathingCompleted;
+    }
     return Crisis.fromJson(
         (await _coreClient.patch('/crises/$id', body)) as Map<String, dynamic>);
   }

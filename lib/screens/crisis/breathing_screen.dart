@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../config/theme.dart';
 import 'crisis_evaluation_screen.dart';
 
 class BreathingScreen extends StatefulWidget {
@@ -97,15 +98,22 @@ class _BreathingScreenState extends State<BreathingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent, // Global background
       appBar: AppBar(
-        title: const Column(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Respiración Guiada'),
+            const Text('Respiración Guiada'),
             Text(
               'Paso 3 de 4',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+                color: AppTheme.textSecondary.withValues(alpha: 0.8),
+              ),
             ),
           ],
         ),

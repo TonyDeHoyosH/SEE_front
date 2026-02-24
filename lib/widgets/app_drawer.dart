@@ -18,6 +18,7 @@ class AppDrawer extends StatelessWidget {
     final user = authProvider.user;
 
     return Drawer(
+      backgroundColor: const Color(0xFFF8FAFC), // Opaque background
       child: Column(
         children: [
           Container(
@@ -59,7 +60,7 @@ class AppDrawer extends StatelessWidget {
                                 )
                               : DecoratedBox(
                                   decoration: const BoxDecoration(
-                                    gradient: AppTheme.mintGradient,
+                                    gradient: AppTheme.primaryGradient,
                                   ),
                                   child: Center(
                                     child: _avatarFallback(
@@ -78,7 +79,7 @@ class AppDrawer extends StatelessWidget {
                         child: const Icon(
                           Icons.edit,
                           size: 12,
-                          color: AppTheme.primary,
+                          color: AppTheme.accentPrimary,
                         ),
                       ),
                     ],
@@ -117,7 +118,7 @@ class AppDrawer extends StatelessWidget {
           // Clinical report
           ListTile(
             leading: const Icon(Icons.picture_as_pdf_outlined,
-                color: AppTheme.primary),
+                color: AppTheme.accentPrimary),
             title: Text(
               'Mi Reporte Clínico',
               style: GoogleFonts.nunito(
@@ -128,7 +129,8 @@ class AppDrawer extends StatelessWidget {
             onTap: () => _openClinicalReport(context),
           ),
           ListTile(
-            leading: const Icon(Icons.shield_outlined, color: AppTheme.primary),
+            leading: const Icon(Icons.shield_outlined,
+                color: AppTheme.accentPrimary),
             title: Text(
               'Política de Privacidad',
               style: GoogleFonts.nunito(
@@ -144,8 +146,8 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading:
-                const Icon(Icons.description_outlined, color: AppTheme.primary),
+            leading: const Icon(Icons.description_outlined,
+                color: AppTheme.accentPrimary),
             title: Text(
               'Términos y condiciones',
               style: GoogleFonts.nunito(
@@ -212,7 +214,7 @@ class AppDrawer extends StatelessWidget {
           const Divider(),
           ListTile(
             leading:
-                const Icon(Icons.logout_rounded, color: AppTheme.textLight),
+                const Icon(Icons.logout_rounded, color: AppTheme.textSecondary),
             title: Text(
               'Cerrar sesión',
               style: GoogleFonts.nunito(
@@ -252,6 +254,7 @@ class AppDrawer extends StatelessWidget {
       BuildContext context, AuthProvider authProvider) async {
     await showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -382,7 +385,25 @@ class AppDrawerButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.menu_rounded),
-      onPressed: () => Scaffold.of(context).openEndDrawer(),
+      onPressed: () {
+        ScaffoldState? targetScaffold;
+        context.visitAncestorElements((element) {
+          if (element.widget is Scaffold) {
+            final state = (element as StatefulElement).state as ScaffoldState;
+            if (state.hasEndDrawer) {
+              targetScaffold = state;
+              return false; // Stop visiting
+            }
+          }
+          return true;
+        });
+
+        if (targetScaffold != null) {
+          targetScaffold!.openEndDrawer();
+        } else {
+          Scaffold.of(context).openEndDrawer();
+        }
+      },
     );
   }
 }
