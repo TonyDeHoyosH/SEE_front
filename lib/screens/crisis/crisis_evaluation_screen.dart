@@ -27,7 +27,7 @@ class CrisisEvaluationScreen extends StatelessWidget {
           children: [
             const Text('Evaluación'),
             Text(
-              'Paso 4 de 4',
+              'Paso 3 de 3',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,

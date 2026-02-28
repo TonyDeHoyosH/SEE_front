@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
-import 'crisis_evaluation_screen.dart';
+import 'crisis_capsules_selection_screen.dart';
 
 class BreathingScreen extends StatefulWidget {
   const BreathingScreen({super.key});
@@ -30,7 +30,7 @@ class _BreathingScreenState extends State<BreathingScreen>
     _animation = TweenSequence<double>([
       // Grow: 0.0 to 1.0 over 4 seconds
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.5, end: 1.0)
+        tween: Tween<double>(begin: 0.0, end: 1.0)
             .chain(CurveTween(curve: Curves.easeInOut)),
         weight: 4,
       ),
@@ -39,9 +39,9 @@ class _BreathingScreenState extends State<BreathingScreen>
         tween: ConstantTween<double>(1.0),
         weight: 7,
       ),
-      // Shrink: 1.0 to 0.5 over 8 seconds
+      // Shrink: 1.0 to 0.0 over 8 seconds
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.5)
+        tween: Tween<double>(begin: 1.0, end: 0.0)
             .chain(CurveTween(curve: Curves.easeInOut)),
         weight: 8,
       ),
@@ -77,22 +77,24 @@ class _BreathingScreenState extends State<BreathingScreen>
       }
     });
 
+    // Start the animation immediately
     _controller.forward();
+  }
+
+  Future<void> _navigateToNextStep() async {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CrisisCapsulesSelectionScreen(),
+      ),
+    );
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
-  }
-
-  void _navigateToEvaluation({required bool completed}) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CrisisEvaluationScreen(breathingCompleted: completed),
-      ),
-    );
   }
 
   @override
@@ -108,7 +110,7 @@ class _BreathingScreenState extends State<BreathingScreen>
           children: [
             const Text('Respiración Guiada'),
             Text(
-              'Paso 3 de 4',
+              'Paso 2 de 3',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -134,15 +136,72 @@ class _BreathingScreenState extends State<BreathingScreen>
             AnimatedBuilder(
               animation: _animation,
               builder: (context, child) {
+                // Determine color based on current phase
+                Color currentInnerColor;
+                Color currentOuterColor;
+
+                if (_currentPhase == 'Inhala profundamente') {
+                  // Phase 1 (0 to 4s) -> progress goes from 0.0 to 1.0
+                  double phaseProgress = _controller.value / (4 / 19);
+                  // Clamp to avoid tiny precision errors at boundaries
+                  phaseProgress = phaseProgress.clamp(0.0, 1.0);
+
+                  currentInnerColor = Color.lerp(
+                    AppTheme.breathEmptyInner,
+                    AppTheme.breathFullInner,
+                    phaseProgress,
+                  )!;
+                  currentOuterColor = Color.lerp(
+                    AppTheme.breathEmptyOuter,
+                    AppTheme.breathFullOuter,
+                    phaseProgress,
+                  )!;
+                } else if (_currentPhase == 'Sostén el aire') {
+                  // Phase 2 (4 to 11s) -> progress goes from 0.0 to 1.0
+                  double phaseProgress =
+                      (_controller.value - (4 / 19)) / (7 / 19);
+                  phaseProgress = phaseProgress.clamp(0.0, 1.0);
+
+                  currentInnerColor = Color.lerp(
+                    AppTheme.breathFullInner,
+                    AppTheme.breathReleaseInner,
+                    phaseProgress,
+                  )!;
+                  currentOuterColor = Color.lerp(
+                    AppTheme.breathFullOuter,
+                    AppTheme.breathReleaseOuter,
+                    phaseProgress,
+                  )!;
+                } else {
+                  // Phase 3 (11 to 19s) -> progress goes from 0.0 to 1.0
+                  double phaseProgress =
+                      (_controller.value - (11 / 19)) / (8 / 19);
+                  phaseProgress = phaseProgress.clamp(0.0, 1.0);
+
+                  currentInnerColor = Color.lerp(
+                    AppTheme.breathReleaseInner,
+                    AppTheme.breathEmptyInner,
+                    phaseProgress,
+                  )!;
+                  currentOuterColor = Color.lerp(
+                    AppTheme.breathReleaseOuter,
+                    AppTheme.breathEmptyOuter,
+                    phaseProgress,
+                  )!;
+                }
+
+                // Initial size is 80, expanding up to 260
+                final double currentSize = 80 + (180 * _animation.value);
+
                 return Container(
-                  width: 200 + (100 * _animation.value),
-                  height: 200 + (100 * _animation.value),
+                  width: currentSize,
+                  height: currentSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF86EFAC).withValues(alpha: 0.3),
+                    color: currentInnerColor.withValues(alpha: 0.5),
                     border: Border.all(
-                      color: const Color(0xFF86EFAC),
-                      width: 3,
+                      color: currentOuterColor,
+                      width: 4,
                     ),
                   ),
                 );
@@ -161,7 +220,7 @@ class _BreathingScreenState extends State<BreathingScreen>
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => _navigateToEvaluation(completed: true),
+                  onPressed: _navigateToNextStep,
                   child: const Padding(
                     padding: EdgeInsets.all(4.0),
                     child: Text('Ya estoy más tranquilo'),
@@ -169,14 +228,9 @@ class _BreathingScreenState extends State<BreathingScreen>
                 ),
               ),
               const SizedBox(height: 12),
+            ] else ...[
+              const SizedBox(height: 48), // Spacer where button would be
             ],
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => _navigateToEvaluation(completed: false),
-                child: const Text('Omitir'),
-              ),
-            ),
           ],
         ),
       ),

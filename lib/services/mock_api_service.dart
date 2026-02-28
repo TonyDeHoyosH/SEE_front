@@ -150,7 +150,8 @@ class MockApiService
     var capsules = capsulesJson.map((json) => Capsule.fromJson(json)).toList();
 
     if (emotionId != null) {
-      capsules = capsules.where((c) => c.emotionId == emotionId).toList();
+      capsules =
+          capsules.where((c) => c.emotionIds.contains(emotionId)).toList();
     }
 
     return capsules;
@@ -172,13 +173,16 @@ class MockApiService
   }
 
   @override
-  Future<Map<String, dynamic>> createCrisis(String emotion) async {
+  Future<Map<String, dynamic>> createCrisis(
+      List<int> emotionIds, int intensityLevel) async {
     await Future.delayed(const Duration(seconds: 1));
 
     final crisis = Crisis(
       id: 'crisis_${DateTime.now().millisecondsSinceEpoch}',
       startedAt: DateTime.now(),
-      emotion: emotion,
+      emotion: 'Varias emociones', // Fallback
+      emotionIds: emotionIds,
+      intensity: intensityLevel,
       evaluation: '',
       breathingCompleted: false,
     );
@@ -187,21 +191,20 @@ class MockApiService
     Capsule? recommendedCapsule;
     final allCapsules = await getCapsules();
 
-    if (allCapsules.isNotEmpty) {
-      if (emotion.toLowerCase().contains('ansiedad')) {
-        recommendedCapsule = allCapsules.firstWhere(
-          (c) => c.title.contains('Respira'),
-          orElse: () => allCapsules.first,
-        );
-      } else if (emotion.toLowerCase().contains('tristeza')) {
-        recommendedCapsule = allCapsules.firstWhere(
-          (c) => c.title.contains('luz'),
-          orElse: () => allCapsules.first,
-        );
-      } else {
-        // Default: return first capsule for other emotions
-        recommendedCapsule = allCapsules.first;
+    if (allCapsules.isNotEmpty && emotionIds.isNotEmpty) {
+      // Pick first matching capsule for any of the emotions
+      for (final eid in emotionIds) {
+        final matches =
+            allCapsules.where((c) => c.emotionIds.contains(eid)).toList();
+        if (matches.isNotEmpty) {
+          recommendedCapsule = matches.first;
+          break;
+        }
       }
+      recommendedCapsule ??= allCapsules.first;
+    }
+    if (allCapsules.isNotEmpty && recommendedCapsule == null) {
+      recommendedCapsule = allCapsules.first;
     }
 
     return {
@@ -299,7 +302,7 @@ class MockApiService
   Future<Capsule> createCapsule({
     required String title,
     required String content,
-    required int emotionId,
+    required List<int> emotionIds,
   }) async {
     await Future.delayed(const Duration(seconds: 1));
 
@@ -307,7 +310,7 @@ class MockApiService
       "id": "capsule_${DateTime.now().millisecondsSinceEpoch}",
       "title": title,
       "content": content,
-      "emotion_id": emotionId,
+      "emotion_ids": emotionIds.join(','),
       "is_active": true,
     };
 

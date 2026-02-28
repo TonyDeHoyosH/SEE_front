@@ -4,11 +4,18 @@ import '../../providers/crisis_provider.dart';
 import '../../providers/data_provider.dart';
 import '../../widgets/glass_card.dart';
 import '../../config/theme.dart';
-import 'crisis_capsule_screen.dart';
 import 'breathing_screen.dart';
 
-class CrisisEmotionScreen extends StatelessWidget {
+class CrisisEmotionScreen extends StatefulWidget {
   const CrisisEmotionScreen({super.key});
+
+  @override
+  State<CrisisEmotionScreen> createState() => _CrisisEmotionScreenState();
+}
+
+class _CrisisEmotionScreenState extends State<CrisisEmotionScreen> {
+  final Set<int> _selectedEmotionIds = {};
+  double _intensity = 5.0;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +63,7 @@ class CrisisEmotionScreen extends StatelessWidget {
             children: [
               const Text('¿Qué sientes?'),
               Text(
-                'Paso 1 de 4',
+                'Paso 1 de 3',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.normal,
@@ -82,26 +89,79 @@ class CrisisEmotionScreen extends StatelessWidget {
                       'Selecciona lo que más se acerca a cómo te sientes ahora',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 32),
                     Expanded(
                       child: GridView.builder(
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 1.1,
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.9,
                         ),
                         itemCount: emotions.length,
                         itemBuilder: (context, index) {
                           final emotion = emotions[index];
+                          final isSelected =
+                              _selectedEmotionIds.contains(emotion.id);
                           return _EmotionCard(
                             emotion: emotion.name,
                             emoji: _getEmotionEmoji(emotion.name),
-                            onTap: () =>
-                                _handleEmotionSelected(context, emotion.name),
+                            isSelected: isSelected,
+                            onTap: () {
+                              setState(() {
+                                if (isSelected) {
+                                  _selectedEmotionIds.remove(emotion.id);
+                                } else {
+                                  _selectedEmotionIds.add(emotion.id);
+                                }
+                              });
+                            },
                           );
                         },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Intensidad de la crisis',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('1',
+                            style: TextStyle(color: AppTheme.textSecondary)),
+                        Expanded(
+                          child: Slider(
+                            value: _intensity,
+                            min: 1,
+                            max: 10,
+                            divisions: 9,
+                            label: _intensity.round().toString(),
+                            activeColor: AppTheme.accentPrimary,
+                            inactiveColor:
+                                AppTheme.accentPrimary.withValues(alpha: 0.2),
+                            onChanged: (value) {
+                              setState(() {
+                                _intensity = value;
+                              });
+                            },
+                          ),
+                        ),
+                        const Text('10',
+                            style: TextStyle(color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _selectedEmotionIds.isNotEmpty
+                            ? () => _handleContinuar(context)
+                            : null,
+                        child: const Padding(
+                          padding: EdgeInsets.all(4.0),
+                          child: Text('Continuar'),
+                        ),
                       ),
                     ),
                   ],
@@ -121,22 +181,22 @@ class CrisisEmotionScreen extends StatelessWidget {
     return '😐';
   }
 
-  Future<void> _handleEmotionSelected(
-      BuildContext context, String emotion) async {
+  Future<void> _handleContinuar(BuildContext context) async {
     final crisisProvider = context.read<CrisisProvider>();
 
-    // Show loading
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    await crisisProvider.startCrisis(emotion);
+    await crisisProvider.startCrisis(
+      _selectedEmotionIds.toList(),
+      _intensity.round(),
+    );
 
     if (!context.mounted) return;
 
-    // Hide loading
     Navigator.pop(context);
 
     if (crisisProvider.errorMessage != null) {
@@ -149,54 +209,60 @@ class CrisisEmotionScreen extends StatelessWidget {
       return;
     }
 
-    // Navigate based on whether there's a recommended capsule
-    if (crisisProvider.recommendedCapsule != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const CrisisCapsuleScreen()),
-      );
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const BreathingScreen()),
-      );
-    }
+    // Default flow continues to BreathingScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const BreathingScreen(),
+      ),
+    );
   }
 }
 
 class _EmotionCard extends StatelessWidget {
   final String emotion;
   final String emoji;
+  final bool isSelected;
   final VoidCallback onTap;
 
   const _EmotionCard({
     required this.emotion,
     required this.emoji,
+    required this.isSelected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12.0),
-      borderRadius: 16.0,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              emoji,
-              style: const TextStyle(fontSize: 48),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              emotion,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
+    return Container(
+      decoration: isSelected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(color: AppTheme.accentPrimary, width: 2),
+              color: AppTheme.accentPrimary.withValues(alpha: 0.1),
+            )
+          : null,
+      child: GlassCard(
+        padding: const EdgeInsets.all(8.0),
+        borderRadius: 16.0,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                emoji,
+                style: const TextStyle(fontSize: 32),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                emotion,
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ class GlassCard extends StatelessWidget {
   final double borderRadius;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const GlassCard({
     super.key,
@@ -13,6 +14,7 @@ class GlassCard extends StatelessWidget {
     this.borderRadius = 20.0,
     this.padding = const EdgeInsets.all(24.0),
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -43,9 +45,10 @@ class GlassCard extends StatelessWidget {
       ),
     );
 
-    if (onTap != null) {
+    if (onTap != null || onLongPress != null) {
       return GestureDetector(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: cardContent,
       );
     }

@@ -6,9 +6,12 @@ import 'package:path_provider/path_provider.dart';
 import '../../providers/data_provider.dart';
 import '../../services/base_api_service.dart';
 import '../../services/local_database_service.dart';
+import '../../models/capsule.dart';
 
 class CreateCapsuleScreen extends StatefulWidget {
-  const CreateCapsuleScreen({super.key});
+  final Capsule? capsule;
+
+  const CreateCapsuleScreen({super.key, this.capsule});
 
   @override
   State<CreateCapsuleScreen> createState() => _CreateCapsuleScreenState();
@@ -16,12 +19,13 @@ class CreateCapsuleScreen extends StatefulWidget {
 
 class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   final _contentFormKey = GlobalKey<FormState>();
+  final _audioFormKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
 
   int _currentStep = 0;
   String _capsuleType = 'texto';
-  int? _selectedEmotionId;
+  List<int> _selectedEmotionIds = [];
   bool _isLoading = false;
   int _charCount = 0;
 
@@ -36,6 +40,15 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.capsule != null) {
+      _titleController.text = widget.capsule!.title;
+      _contentController.text = widget.capsule!.content;
+      _capsuleType = widget.capsule!.type;
+      _audioPath = widget.capsule!.audioPath;
+      _selectedEmotionIds = List.from(widget.capsule!.emotionIds);
+      _charCount = _contentController.text.length;
+    }
+
     _contentController.addListener(() {
       setState(() {
         _charCount = _contentController.text.length;
@@ -52,36 +65,42 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   }
 
   Future<void> _handleSave() async {
-    if (_selectedEmotionId == null) return;
+    if (_selectedEmotionIds.isEmpty) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final title = _titleController.text.trim().isEmpty
-          ? 'Sin título'
-          : _titleController.text.trim();
+      final title = _titleController.text.trim();
 
-      if (_capsuleType == 'texto') {
+      if (widget.capsule == null && _capsuleType == 'texto') {
         await context.read<CoreApiService>().createCapsule(
               title: title,
               content: _contentController.text.trim(),
-              emotionId: _selectedEmotionId!,
+              emotionIds: _selectedEmotionIds,
             );
       }
 
-      final capsuleId = 'cap-${DateTime.now().millisecondsSinceEpoch}';
-      await LocalDatabaseService.insertCapsule({
+      final capsuleId =
+          widget.capsule?.id ?? 'cap-${DateTime.now().millisecondsSinceEpoch}';
+      final capsuleData = {
         'id': capsuleId,
         'title': title,
         'content':
             _capsuleType == 'texto' ? _contentController.text.trim() : '',
-        'emotion_id': _selectedEmotionId!,
-        'is_active': 1,
+        'emotion_ids': _selectedEmotionIds.join(','),
+        'is_active': widget.capsule?.isActive ?? true ? 1 : 0,
         'type': _capsuleType,
         'audio_path': _audioPath,
         'is_synced': 0,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+        'created_at': widget.capsule?.createdAt?.toIso8601String() ??
+            DateTime.now().toIso8601String(),
+      };
+
+      if (widget.capsule != null) {
+        await LocalDatabaseService.updateCapsule(capsuleData);
+      } else {
+        await LocalDatabaseService.insertCapsule(capsuleData);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -376,10 +395,16 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
               controller: _titleController,
               maxLength: 80,
               decoration: const InputDecoration(
-                labelText: 'Título (opcional)',
+                labelText: 'Título',
                 hintText: 'Ej: Mi afirmación diaria',
                 prefixIcon: Icon(Icons.title),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'El título es obligatorio';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -438,123 +463,136 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   Widget _buildAudioStep2() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Graba tu cápsula',
-            style: Theme.of(context).textTheme.displaySmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Graba un mensaje de voz para ti',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _titleController,
-            maxLength: 80,
-            decoration: const InputDecoration(
-              labelText: 'Título (opcional)',
-              hintText: 'Ej: Palabras de aliento',
-              prefixIcon: Icon(Icons.title),
+      child: Form(
+        key: _audioFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Graba tu cápsula',
+              style: Theme.of(context).textTheme.displaySmall,
             ),
-          ),
-          const SizedBox(height: 32),
-          Center(
-            child: Column(
-              children: [
-                Text(
-                  _formatDuration(_recordingDuration),
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        fontWeight: FontWeight.w300,
+            const SizedBox(height: 8),
+            Text(
+              'Graba un mensaje de voz para ti',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _titleController,
+              maxLength: 80,
+              decoration: const InputDecoration(
+                labelText: 'Título',
+                hintText: 'Ej: Palabras de aliento',
+                prefixIcon: Icon(Icons.title),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'El título es obligatorio';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 32),
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    _formatDuration(_recordingDuration),
+                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                          fontWeight: FontWeight.w300,
+                          color: _isRecording
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF475569),
+                        ),
+                  ),
+                  const SizedBox(height: 24),
+                  if (_audioPath != null && !_isRecording)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF22C55E).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: Color(0xFF22C55E),
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Audio grabado',
+                            style: TextStyle(color: Color(0xFF22C55E)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  GestureDetector(
+                    onTap: _isRecording ? _stopRecording : _startRecording,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
                         color: _isRecording
                             ? const Color(0xFFEF4444)
-                            : const Color(0xFF475569),
+                            : const Color(0xFF5EEAD4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_isRecording
+                                    ? const Color(0xFFEF4444)
+                                    : const Color(0xFF5EEAD4))
+                                .withValues(alpha: 0.4),
+                            blurRadius: 20,
+                            spreadRadius: 4,
+                          ),
+                        ],
                       ),
-                ),
-                const SizedBox(height: 24),
-                if (_audioPath != null && !_isRecording)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: Color(0xFF22C55E),
-                          size: 20,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Audio grabado',
-                          style: TextStyle(color: Color(0xFF22C55E)),
-                        ),
-                      ],
+                      child: Icon(
+                        _isRecording ? Icons.stop : Icons.mic,
+                        size: 40,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: _isRecording ? _stopRecording : _startRecording,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isRecording
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFF5EEAD4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (_isRecording
-                                  ? const Color(0xFFEF4444)
-                                  : const Color(0xFF5EEAD4))
-                              .withValues(alpha: 0.4),
-                          blurRadius: 20,
-                          spreadRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      _isRecording ? Icons.stop : Icons.mic,
-                      size: 40,
-                      color: Colors.white,
-                    ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _isRecording
+                        ? 'Toca para detener'
+                        : (_audioPath != null
+                            ? 'Toca para grabar de nuevo'
+                            : 'Toca para grabar'),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _isRecording
-                      ? 'Toca para detener'
-                      : (_audioPath != null
-                          ? 'Toca para grabar de nuevo'
-                          : 'Toca para grabar'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: (_audioPath != null && !_isRecording)
-                  ? () => setState(() => _currentStep = 2)
-                  : null,
-              child: const Padding(
-                padding: EdgeInsets.all(4.0),
-                child: Text('Continuar'),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: (_audioPath != null && !_isRecording)
+                    ? () {
+                        if (_audioFormKey.currentState!.validate()) {
+                          setState(() => _currentStep = 2);
+                        }
+                      }
+                    : null,
+                child: const Padding(
+                  padding: EdgeInsets.all(4.0),
+                  child: Text('Continuar'),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -585,14 +623,22 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
               ? const Center(child: CircularProgressIndicator())
               : ListView(
                   children: emotions.map<Widget>((emotion) {
-                    return RadioListTile<int>(
-                      value: emotion.id,
-                      groupValue: _selectedEmotionId,
-                      onChanged: (value) {
-                        setState(() => _selectedEmotionId = value);
+                    return CheckboxListTile(
+                      value: _selectedEmotionIds.contains(emotion.id),
+                      onChanged: (bool? value) {
+                        setState(() {
+                          if (value == true) {
+                            if (!_selectedEmotionIds.contains(emotion.id)) {
+                              _selectedEmotionIds.add(emotion.id);
+                            }
+                          } else {
+                            _selectedEmotionIds.remove(emotion.id);
+                          }
+                        });
                       },
                       title: Text(emotion.name),
                       activeColor: const Color(0xFF5EEAD4),
+                      controlAffinity: ListTileControlAffinity.leading,
                     );
                   }).toList(),
                 ),
@@ -602,9 +648,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: (_selectedEmotionId == null || _isLoading)
-                  ? null
-                  : _handleSave,
+              onPressed: _selectedEmotionIds.isNotEmpty ? _handleSave : null,
               child: Padding(
                 padding: const EdgeInsets.all(4.0),
                 child: _isLoading

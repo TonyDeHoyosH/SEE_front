@@ -19,13 +19,14 @@ class CrisisProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> startCrisis(String emotionName) async {
+  Future<void> startCrisis(List<int> emotionIds, int intensityLevel) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final result = await _coreService.createCrisis(emotionName);
+      final result =
+          await _coreService.createCrisis(emotionIds, intensityLevel);
       _currentCrisis = result['crisis'] as Crisis;
       _recommendedCapsule = result['capsule'] as Capsule?;
 
@@ -56,6 +57,8 @@ class CrisisProvider extends ChangeNotifier {
         'id': _currentCrisis!.id,
         'started_at': _currentCrisis!.startedAt.toIso8601String(),
         'emotion': _currentCrisis!.emotion,
+        'emotion_ids': _currentCrisis!.emotionIds.join(','),
+        'intensity': _currentCrisis!.intensity,
         'evaluation': evaluation,
         'breathing_completed': breathingCompleted ? 1 : 0,
         'is_synced': 1,
@@ -70,6 +73,8 @@ class CrisisProvider extends ChangeNotifier {
         'id': _currentCrisis!.id,
         'started_at': _currentCrisis!.startedAt.toIso8601String(),
         'emotion': _currentCrisis!.emotion,
+        'emotion_ids': _currentCrisis!.emotionIds.join(','),
+        'intensity': _currentCrisis!.intensity,
         'evaluation': evaluation,
         'breathing_completed': breathingCompleted ? 1 : 0,
         'is_synced': 0,

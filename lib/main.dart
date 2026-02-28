@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'config/theme.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/base_api_service.dart';
-import 'services/auth_api_service.dart';
-import 'services/core_api_service.dart';
-import 'services/reports_api_service.dart';
+import 'services/api_service.dart';
 import 'services/mock_api_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/data_provider.dart';
@@ -14,10 +13,11 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 
 // Cambia a false cuando el backend esté corriendo en el servidor.
-const bool _kUseMock = true;
+const bool _kUseMock = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
 
   final AuthApiService authService;
   final CoreApiService coreService;
@@ -29,9 +29,10 @@ void main() async {
     coreService = mock;
     reportsService = mock;
   } else {
-    authService = HttpAuthApiService();
-    coreService = HttpCoreApiService();
-    reportsService = HttpReportsApiService();
+    final realApi = ApiServiceImpl();
+    authService = realApi;
+    coreService = realApi;
+    reportsService = realApi;
   }
 
   final authProvider = AuthProvider(authService, coreService);

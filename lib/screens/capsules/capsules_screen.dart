@@ -6,6 +6,7 @@ import '../../models/emotion.dart';
 import '../../providers/data_provider.dart';
 import '../../models/capsule.dart';
 import '../../services/base_api_service.dart';
+import '../../services/local_database_service.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/glass_card.dart';
 import 'capsule_detail_screen.dart';
@@ -135,7 +136,10 @@ class _CapsulesScreenState extends State<CapsulesScreen> {
                             final emotions =
                                 context.read<DataProvider>().emotions;
                             return _CapsuleCard(
-                                capsule: capsule, emotions: emotions);
+                              capsule: capsule,
+                              emotions: emotions,
+                              onChanged: _loadCapsules,
+                            );
                           },
                         ),
             ),
@@ -149,8 +153,13 @@ class _CapsulesScreenState extends State<CapsulesScreen> {
 class _CapsuleCard extends StatefulWidget {
   final Capsule capsule;
   final List<Emotion> emotions;
+  final VoidCallback onChanged;
 
-  const _CapsuleCard({required this.capsule, required this.emotions});
+  const _CapsuleCard({
+    required this.capsule,
+    required this.emotions,
+    required this.onChanged,
+  });
 
   @override
   State<_CapsuleCard> createState() => _CapsuleCardState();
@@ -169,13 +178,100 @@ class _CapsuleCardState extends State<_CapsuleCard> {
       ? AppTheme.accentPrimary
       : const Color(0xFFC4A8E8);
 
+  void _showOptionsSheet(BuildContext context, Capsule capsule) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+              child: Text(
+                capsule.title,
+                style: AppTheme.lightTheme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading:
+                  const Icon(Icons.edit_rounded, color: AppTheme.accentPrimary),
+              title: const Text('Editar cápsula'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _navigateToEdit(capsule);
+              },
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.delete_rounded, color: AppTheme.errorRed),
+              title: const Text('Eliminar cápsula'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(capsule);
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _navigateToEdit(Capsule capsule) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateCapsuleScreen(capsule: capsule),
+      ),
+    );
+    if (result == true) {
+      widget.onChanged();
+    }
+  }
+
+  void _confirmDelete(Capsule capsule) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Estás seguro?'),
+        content: Text(
+            'Esto eliminará la cápsula \'${capsule.title}\'. Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await LocalDatabaseService.deleteCapsule(capsule.id);
+              Navigator.pop(ctx);
+              widget.onChanged();
+            },
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final emotionName = widget.emotions
-            .where((e) => e.id == widget.capsule.emotionId)
-            .map((e) => e.name)
-            .firstOrNull ??
-        'Emoción ${widget.capsule.emotionId}';
+    final emotionNames = widget.capsule.emotionIds.isEmpty
+        ? 'Sin emoción'
+        : widget.capsule.emotionIds.map((id) {
+            return widget.emotions
+                    .where((e) => e.id == id)
+                    .map((e) => e.name)
+                    .firstOrNull ??
+                'Emoción $id';
+          }).join(', ');
 
     return GlassCard(
       padding: const EdgeInsets.all(20),
@@ -185,11 +281,12 @@ class _CapsuleCardState extends State<_CapsuleCard> {
           MaterialPageRoute(
             builder: (_) => CapsuleDetailScreen(
               capsule: widget.capsule,
-              emotionName: emotionName,
+              emotionName: emotionNames,
             ),
           ),
         );
       },
+      onLongPress: () => _showOptionsSheet(context, widget.capsule),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -266,12 +363,14 @@ class _CapsuleCardState extends State<_CapsuleCard> {
               ),
             ),
             child: Text(
-              emotionName,
+              emotionNames,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.accentPrimary,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

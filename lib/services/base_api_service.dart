@@ -26,10 +26,11 @@ abstract class CoreApiService {
   Future<Capsule> createCapsule({
     required String title,
     required String content,
-    required int emotionId,
+    required List<int> emotionIds,
   });
 
-  Future<Map<String, dynamic>> createCrisis(String emotion);
+  Future<Map<String, dynamic>> createCrisis(
+      List<int> emotionIds, int intensityLevel);
   Future<Crisis> updateCrisis(
     String id, {
     String? evaluation,

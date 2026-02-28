@@ -129,14 +129,14 @@ class _PostCrisisReflectionScreenState
         child: ListView(
           padding: const EdgeInsets.all(24.0),
           children: [
-            GlassCard(
-              padding: const EdgeInsets.all(16),
+            const GlassCard(
+              padding: EdgeInsets.all(16),
               borderRadius: 12,
               child: Row(
                 children: [
                   Icon(Icons.lock_outline,
                       color: AppTheme.textSecondary, size: 20),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Esta información es solo para ti y, si quieres, para compartir con tu terapeuta.',

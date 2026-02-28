@@ -34,7 +34,7 @@ class FloatingNavbar extends StatelessWidget {
           children: [
             _buildNavItem(0, Icons.home_rounded, 'Home'),
             _buildNavItem(1, Icons.favorite_rounded, 'Victories'),
-            _buildNavItem(2, Icons.health_and_safety_rounded, 'Crisis'),
+            _buildNavItem(2, Icons.health_and_safety_rounded, 'Cápsulas'),
           ],
         ),
       ),

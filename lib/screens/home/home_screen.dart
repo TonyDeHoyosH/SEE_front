@@ -153,7 +153,18 @@ class _DashboardViewState extends State<_DashboardView> {
                     child: _FeelingButton(
                       emoji: '😊',
                       label: 'Estoy bien',
-                      onTap: widget.onNavigateToVictories,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                '¡Check positivo registrado! Qué bueno que te sientas bien hoy.'),
+                            backgroundColor: Color(0xFF4CAF50),
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                        // Still navigate to victories to keep the flow
+                        widget.onNavigateToVictories();
+                      },
                     ),
                   ),
                   const SizedBox(width: 16),

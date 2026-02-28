@@ -1,83 +1,45 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
-  final String baseUrl;
+  late Dio authDio;
+  late Dio coreDio;
 
-  ApiClient({required this.baseUrl});
+  ApiClient() {
+    final authBaseUrl =
+        dotenv.env['AUTH_BASE_URL'] ?? 'http://10.0.2.2:3001/api/auth';
+    final coreBaseUrl =
+        dotenv.env['CORE_BASE_URL'] ?? 'http://10.0.2.2:3002/api';
 
-  Future<Map<String, String>> _buildHeaders({bool requiresAuth = true}) async {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
+    // Dio instance for Auth (login/register) - No token required
+    authDio = Dio(BaseOptions(
+      baseUrl: authBaseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ));
 
-    if (requiresAuth) {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-    }
+    // Dio instance for Core Operations - Token injected automatically
+    coreDio = Dio(BaseOptions(
+      baseUrl: coreBaseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ));
 
-    return headers;
-  }
-
-  void _handleResponse(http.Response response) {
-    if (response.statusCode >= 200 && response.statusCode < 300) return;
-
-    String message = 'Error ${response.statusCode}';
-    try {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      message = body['message']?.toString() ?? message;
-    } catch (_) {}
-
-    throw Exception(message);
-  }
-
-  Future<dynamic> get(
-    String path, {
-    Map<String, String>? queryParams,
-    bool requiresAuth = true,
-  }) async {
-    final uri =
-        Uri.parse('$baseUrl$path').replace(queryParameters: queryParams);
-    final headers = await _buildHeaders(requiresAuth: requiresAuth);
-    final response = await http.get(uri, headers: headers);
-    _handleResponse(response);
-    return jsonDecode(response.body);
-  }
-
-  Future<dynamic> post(
-    String path,
-    Map<String, dynamic> body, {
-    bool requiresAuth = false,
-  }) async {
-    final uri = Uri.parse('$baseUrl$path');
-    final headers = await _buildHeaders(requiresAuth: requiresAuth);
-    final response = await http.post(
-      uri,
-      headers: headers,
-      body: jsonEncode(body),
-    );
-    _handleResponse(response);
-    return jsonDecode(response.body);
-  }
-
-  Future<dynamic> patch(
-    String path,
-    Map<String, dynamic> body, {
-    bool requiresAuth = true,
-  }) async {
-    final uri = Uri.parse('$baseUrl$path');
-    final headers = await _buildHeaders(requiresAuth: requiresAuth);
-    final response = await http.patch(
-      uri,
-      headers: headers,
-      body: jsonEncode(body),
-    );
-    _handleResponse(response);
-    return jsonDecode(response.body);
+    // Interceptor for Authentication
+    coreDio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('auth_token');
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        return handler.next(options);
+      },
+      onError: (DioException e, handler) {
+        // Here you could handle 401 globally to log the user out
+        return handler.next(e);
+      },
+    ));
   }
 }

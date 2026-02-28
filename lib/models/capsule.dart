@@ -2,7 +2,7 @@ class Capsule {
   final String id;
   final String title;
   final String content;
-  final int emotionId;
+  final List<int> emotionIds;
   final bool isActive;
   final String type;
   final String? audioPath;
@@ -13,7 +13,7 @@ class Capsule {
     required this.id,
     required this.title,
     required this.content,
-    required this.emotionId,
+    required this.emotionIds,
     required this.isActive,
     this.type = 'texto',
     this.audioPath,
@@ -22,11 +22,27 @@ class Capsule {
   });
 
   factory Capsule.fromJson(Map<String, dynamic> json) {
+    List<int> parsedEmotions = [];
+    if (json['emotion_ids'] != null) {
+      if (json['emotion_ids'] is String) {
+        parsedEmotions = (json['emotion_ids'] as String)
+            .split(',')
+            .where((e) => e.isNotEmpty)
+            .map(int.parse)
+            .toList();
+      } else if (json['emotion_ids'] is List) {
+        parsedEmotions = List<int>.from(json['emotion_ids']);
+      }
+    } else if (json['emotion_id'] != null) {
+      // Fallback
+      parsedEmotions = [json['emotion_id'] as int];
+    }
+
     return Capsule(
       id: json['id'] as String,
       title: json['title'] as String,
       content: json['content'] as String,
-      emotionId: json['emotion_id'] as int,
+      emotionIds: parsedEmotions,
       isActive: json['is_active'] as bool,
       type: json['type'] as String? ?? 'texto',
       audioPath: json['audio_path'] as String?,
@@ -42,7 +58,7 @@ class Capsule {
       'id': id,
       'title': title,
       'content': content,
-      'emotion_id': emotionId,
+      'emotion_ids': emotionIds.join(','),
       'is_active': isActive,
       'type': type,
       'audio_path': audioPath,
@@ -55,7 +71,7 @@ class Capsule {
     String? id,
     String? title,
     String? content,
-    int? emotionId,
+    List<int>? emotionIds,
     bool? isActive,
     String? type,
     String? audioPath,
@@ -66,7 +82,7 @@ class Capsule {
       id: id ?? this.id,
       title: title ?? this.title,
       content: content ?? this.content,
-      emotionId: emotionId ?? this.emotionId,
+      emotionIds: emotionIds ?? this.emotionIds,
       isActive: isActive ?? this.isActive,
       type: type ?? this.type,
       audioPath: audioPath ?? this.audioPath,

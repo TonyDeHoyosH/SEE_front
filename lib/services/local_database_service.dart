@@ -16,13 +16,15 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE crisis (
             id TEXT PRIMARY KEY,
             started_at TEXT NOT NULL,
             emotion TEXT NOT NULL,
+            emotion_ids TEXT,
+            intensity INTEGER DEFAULT 5,
             evaluation TEXT,
             breathing_completed INTEGER NOT NULL DEFAULT 0,
             is_synced INTEGER NOT NULL DEFAULT 0,
@@ -40,6 +42,7 @@ class LocalDatabaseService {
             title TEXT NOT NULL,
             content TEXT NOT NULL DEFAULT '',
             emotion_id INTEGER NOT NULL,
+            emotion_ids TEXT,
             is_active INTEGER NOT NULL DEFAULT 1,
             type TEXT NOT NULL DEFAULT 'texto',
             audio_path TEXT,
@@ -100,6 +103,14 @@ class LocalDatabaseService {
           await db.delete('victory_definitions');
           await db.delete('victory_logs');
           await _seedDefaultVictories(db);
+        }
+        if (oldVersion < 5) {
+          await db.execute('ALTER TABLE crisis ADD COLUMN emotion_ids TEXT');
+          await db.execute(
+              'ALTER TABLE crisis ADD COLUMN intensity INTEGER DEFAULT 5');
+        }
+        if (oldVersion < 6) {
+          await db.execute('ALTER TABLE capsules ADD COLUMN emotion_ids TEXT');
         }
       },
     );
@@ -173,6 +184,16 @@ class LocalDatabaseService {
     );
   }
 
+  static Future<int> updateCapsule(Map<String, dynamic> capsule) async {
+    final db = await database;
+    return await db.update(
+      'capsules',
+      capsule,
+      where: 'id = ?',
+      whereArgs: [capsule['id']],
+    );
+  }
+
   static Future<List<Map<String, dynamic>>> getAllCapsules() async {
     final db = await database;
     return await db.query('capsules', orderBy: 'created_at DESC');
@@ -194,6 +215,15 @@ class LocalDatabaseService {
       'capsules',
       where: 'is_synced = ?',
       whereArgs: [0],
+    );
+  }
+
+  static Future<int> deleteCapsule(String id) async {
+    final db = await database;
+    return await db.delete(
+      'capsules',
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 

@@ -23,6 +23,23 @@ class AppTheme {
   static const Color successGreen = Color(0xFF22C55E);
   static const Color warningOrange = Color(0xFFFB923C);
 
+  // ANIMACIÓN DE RESPIRACIÓN
+  // Estado 1: Iniciar Inhalación (Vacío)
+  static const Color breathEmptyInner =
+      Color.fromARGB(255, 237, 193, 227); // peach
+  static const Color breathEmptyOuter =
+      Color.fromARGB(255, 251, 152, 213); // light lavander
+  // Estado 2: Mantener (Lleno)
+  static const Color breathFullInner =
+      Color.fromARGB(255, 213, 187, 245); // accent light
+  static const Color breathFullOuter =
+      Color.fromARGB(255, 178, 141, 234); // accent primary
+  // Estado 3: Iniciar Exhalación (Liberando)
+  static const Color breathReleaseInner =
+      Color.fromARGB(255, 159, 189, 216); // accent primary
+  static const Color breathReleaseOuter =
+      Color.fromARGB(255, 125, 164, 200); // accent button
+
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [Color(0xFFD9C8F0), Color(0xFFC4A8E8)],
     begin: Alignment.topLeft,
