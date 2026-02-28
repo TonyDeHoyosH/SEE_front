@@ -45,6 +45,12 @@ class MockApiService
   }
 
   @override
+  Future<void> deleteAccount() async {
+    await Future.delayed(const Duration(seconds: 1));
+    // Simulate successful deletion for the UI
+  }
+
+  @override
   Future<Map<String, dynamic>> getCatalogs() async {
     await Future.delayed(const Duration(seconds: 1));
 
@@ -296,6 +302,11 @@ class MockApiService
     ];
 
     return victoriesJson.map((json) => Victory.fromJson(json)).toList();
+  }
+
+  @override
+  Future<void> deleteVictoryType(int id) async {
+    await Future.delayed(const Duration(seconds: 1));
   }
 
   @override

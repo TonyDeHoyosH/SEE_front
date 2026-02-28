@@ -11,6 +11,7 @@ import 'dart:io';
 abstract class AuthApiService {
   Future<User> login(String email, String password);
   Future<User> register(String email, String password, String nombrePreferido);
+  Future<void> deleteAccount();
 }
 
 abstract class CoreApiService {
@@ -40,6 +41,7 @@ abstract class CoreApiService {
 
   Future<Victory> createVictory(String name, DateTime occurredAt);
   Future<List<Victory>> getMyVictories();
+  Future<void> deleteVictoryType(int id);
 
   Future<User> updateProfile({String? preferredName, File? avatarImage});
 }

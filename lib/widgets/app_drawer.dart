@@ -194,13 +194,31 @@ class AppDrawer extends StatelessWidget {
                       ),
                       onPressed: () async {
                         Navigator.pop(ctx);
-                        await authProvider.logout();
-                        if (context.mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                                builder: (_) => const LoginScreen()),
-                            (route) => false,
-                          );
+                        try {
+                          await authProvider.deleteAccount();
+                          if (context.mounted) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                  builder: (_) => const LoginScreen()),
+                              (route) => false,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('Cuenta eliminada permanentemente.'),
+                                backgroundColor: AppTheme.errorRed,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error al eliminar: $e'),
+                                backgroundColor: AppTheme.errorRed,
+                              ),
+                            );
+                          }
                         }
                       },
                       child: const Text('Eliminar'),

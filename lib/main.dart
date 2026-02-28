@@ -75,7 +75,7 @@ class MyApp extends StatelessWidget {
           create: (_) => CrisisProvider(coreService),
         ),
         ChangeNotifierProvider(
-          create: (_) => VictoryProvider(),
+          create: (_) => VictoryProvider(coreService),
         ),
       ],
       child: Consumer<AuthProvider>(

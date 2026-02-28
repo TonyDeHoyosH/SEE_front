@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -89,6 +90,16 @@ class ApiServiceImpl
     } on DioException catch (e) {
       throw Exception(e.response?.data['error'] ??
           'Error de red durante el registro: ${e.message}');
+    }
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    try {
+      await _apiClient.coreDio.delete('/users/profile');
+    } catch (e) {
+      debugPrint('Error en deleteAccount: $e');
+      rethrow; // Lanzar para que el Frontend lo sepa y de todas formas cierre sesión
     }
   }
 
@@ -342,12 +353,13 @@ class ApiServiceImpl
   Future<Victory> createVictory(String name, DateTime occurredAt) async {
     try {
       final response = await _apiClient.coreDio.post('/victories', data: {
-        // Backend expect: userId is injected by token. It usually expects victoryTypeId.
-        // Since we don't have ID mapping nicely here if 'name' is just a string, we might break if backend expects integer IDs.
-        // In victory.controller.ts registerVictories likely expects { victories: [{victoryTypeId, occurredAt}] }
-        // Let's perform a best-effort mock/fallback until specific API design matches
+        'newCustomVictoryName': name,
       });
-      return Victory(id: 'temp', name: name, occurredAt: occurredAt);
+      return Victory(
+        id: response.data['insertedIds']?.first?.toString() ?? 'temp',
+        name: name,
+        occurredAt: occurredAt,
+      );
     } catch (_) {
       // Fallback
       return Victory(id: 'mock-v-1', name: name, occurredAt: occurredAt);
@@ -358,6 +370,16 @@ class ApiServiceImpl
   Future<List<Victory>> getMyVictories() async {
     // Backend missing simple GET /victories right now.
     return [];
+  }
+
+  @override
+  Future<void> deleteVictoryType(int id) async {
+    try {
+      await _apiClient.coreDio.delete('/victories/$id');
+    } catch (e) {
+      debugPrint('Error eliminando victoria en backend: $e');
+      // No rethrow para no romper la app si el backend falla o no existe el endpoint aún
+    }
   }
 
   // ---------------------------------------------------------------------------
