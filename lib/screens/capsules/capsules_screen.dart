@@ -249,9 +249,16 @@ class _CapsuleCardState extends State<_CapsuleCard> {
           ),
           TextButton(
             onPressed: () async {
+              try {
+                await context.read<CoreApiService>().deleteCapsule(capsule.id);
+              } catch (e) {
+                // Si falla en backend, continua de todas formas para no dejar colgada la app
+              }
               await LocalDatabaseService.deleteCapsule(capsule.id);
-              Navigator.pop(ctx);
-              widget.onChanged();
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                widget.onChanged();
+              }
             },
             style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
             child: const Text('Eliminar'),

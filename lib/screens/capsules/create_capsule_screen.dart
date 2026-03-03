@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
@@ -72,12 +73,22 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
     try {
       final title = _titleController.text.trim();
 
-      if (widget.capsule == null && _capsuleType == 'texto') {
-        await context.read<CoreApiService>().createCapsule(
-              title: title,
-              content: _contentController.text.trim(),
-              emotionIds: _selectedEmotionIds,
-            );
+      if (widget.capsule == null) {
+        if (_capsuleType == 'texto') {
+          await context.read<CoreApiService>().createCapsule(
+                title: title,
+                type: 'TEXT',
+                contentText: _contentController.text.trim(),
+                emotionIds: _selectedEmotionIds,
+              );
+        } else if (_capsuleType == 'audio' && _audioPath != null) {
+          await context.read<CoreApiService>().createCapsule(
+                title: title,
+                type: 'AUDIO',
+                audioFile: File(_audioPath!),
+                emotionIds: _selectedEmotionIds,
+              );
+        }
       }
 
       final capsuleId =
@@ -97,6 +108,11 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
       };
 
       if (widget.capsule != null) {
+        await context.read<CoreApiService>().updateCapsule(
+              capsuleId,
+              title: title,
+              emotionIds: _selectedEmotionIds,
+            );
         await LocalDatabaseService.updateCapsule(capsuleData);
       } else {
         await LocalDatabaseService.insertCapsule(capsuleData);

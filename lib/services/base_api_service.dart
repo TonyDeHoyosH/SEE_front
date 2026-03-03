@@ -11,6 +11,8 @@ import 'dart:io';
 abstract class AuthApiService {
   Future<User> login(String email, String password);
   Future<User> register(String email, String password, String nombrePreferido);
+  Future<User> googleLogin(
+      String email, String nombrePreferido, String? googleAccessToken);
   Future<void> deleteAccount();
 }
 
@@ -26,9 +28,17 @@ abstract class CoreApiService {
   Future<Capsule> getCapsuleById(String id);
   Future<Capsule> createCapsule({
     required String title,
-    required String content,
+    required String type, // 'TEXT' or 'AUDIO'
+    String? contentText,
+    File? audioFile,
     required List<int> emotionIds,
   });
+  Future<Capsule> updateCapsule(
+    String id, {
+    String? title,
+    List<int>? emotionIds,
+  });
+  Future<void> deleteCapsule(String id);
 
   Future<Map<String, dynamic>> createCrisis(
       List<int> emotionIds, int intensityLevel);
@@ -44,6 +54,7 @@ abstract class CoreApiService {
   Future<void> deleteVictoryType(int id);
 
   Future<User> updateProfile({String? preferredName, File? avatarImage});
+  Future<void> sendTelemetrySnapshot(String googleAccessToken);
 }
 
 abstract class ReportsApiService {

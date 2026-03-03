@@ -27,6 +27,11 @@ class MockApiService
   }
 
   @override
+  Future<void> sendTelemetrySnapshot(String googleAccessToken) async {
+    // Mock
+  }
+
+  @override
   Future<User> register(
     String email,
     String password,
@@ -42,6 +47,18 @@ class MockApiService
     };
 
     return User.fromJson(userJson);
+  }
+
+  @override
+  Future<User> googleLogin(
+      String email, String nombrePreferido, String? googleAccessToken) async {
+    await Future.delayed(const Duration(seconds: 1));
+    return User(
+      id: 'mock-google-1',
+      email: email,
+      nombrePreferido: nombrePreferido,
+      token: 'mock-google-token',
+    );
   }
 
   @override
@@ -312,7 +329,9 @@ class MockApiService
   @override
   Future<Capsule> createCapsule({
     required String title,
-    required String content,
+    required String type, // 'TEXT' or 'AUDIO'
+    String? contentText,
+    File? audioFile,
     required List<int> emotionIds,
   }) async {
     await Future.delayed(const Duration(seconds: 1));
@@ -320,12 +339,31 @@ class MockApiService
     final capsuleJson = {
       "id": "capsule_${DateTime.now().millisecondsSinceEpoch}",
       "title": title,
-      "content": content,
+      "content": contentText ?? '',
       "emotion_ids": emotionIds.join(','),
       "is_active": true,
+      "type": type.toLowerCase(),
+      "audio_path": audioFile?.path,
     };
 
     return Capsule.fromJson(capsuleJson);
+  }
+
+  @override
+  Future<Capsule> updateCapsule(String id,
+      {String? title, List<int>? emotionIds}) async {
+    await Future.delayed(const Duration(seconds: 1));
+    return Capsule(
+        id: id,
+        title: title ?? 'Editado',
+        content: '...',
+        emotionIds: emotionIds ?? [],
+        isActive: true);
+  }
+
+  @override
+  Future<void> deleteCapsule(String id) async {
+    await Future.delayed(const Duration(seconds: 1));
   }
 
   @override

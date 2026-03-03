@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user.dart';
 import '../services/base_api_service.dart';
 
@@ -51,6 +52,60 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loginWithGoogle() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await GoogleSignIn.instance.initialize(
+        serverClientId:
+            '406957271307-3d97h1iouperfm2p9g0hrf4pp4bt6n3h.apps.googleusercontent.com',
+      );
+
+      final GoogleSignInAccount googleUser =
+          await GoogleSignIn.instance.authenticate();
+
+      final GoogleSignInClientAuthorization authDetails =
+          await googleUser.authorizationClient.authorizeScopes([
+        'email',
+        'https://www.googleapis.com/auth/bigquery',
+      ]);
+
+      final String? accessToken = authDetails.accessToken;
+
+      if (accessToken == null || accessToken.isEmpty) {
+        throw Exception('No se pudo obtener el token de acceso de Google.');
+      }
+
+      // Enviar snapshot de telemetría a nuestro backend
+      await _coreService.sendTelemetrySnapshot(accessToken);
+
+      // Enviar credenciales a Node.js para que genere sesión en BD y devuelva su Token Oficial
+      _user = await _authService.googleLogin(
+        googleUser.email,
+        googleUser.displayName ?? 'Usuario de Google',
+        accessToken,
+      );
+
+      // Guardar también la sesión global
+      await _saveSession(_user!);
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      if (e.toString().contains('canceled') ||
+          e.toString().contains('sign_in_canceled') ||
+          e.toString().contains('GoogleSignInException')) {
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+      _errorMessage = 'Error en inicio de sesión con Google: $e';
       _isLoading = false;
       notifyListeners();
     }

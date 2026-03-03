@@ -94,6 +94,42 @@ class ApiServiceImpl
   }
 
   @override
+  Future<User> googleLogin(
+    String email,
+    String nombrePreferido,
+    String? googleAccessToken,
+  ) async {
+    try {
+      final response = await _apiClient.authDio.post('/googleLogin', data: {
+        'email': email,
+        'preferredName': nombrePreferido,
+        'googleToken': googleAccessToken,
+      });
+
+      final data = response.data;
+      final token = data['token'];
+      final userResponse = data['user'];
+
+      final appUser = User(
+        id: userResponse['id'],
+        email: userResponse['email'],
+        nombrePreferido: userResponse['name'],
+        token: token,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', token);
+      await prefs.setString('user_email', appUser.email);
+      await prefs.setString('user_nombre', appUser.nombrePreferido);
+
+      return appUser;
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['error'] ??
+          'Error de red durante Google Login: ${e.message}');
+    }
+  }
+
+  @override
   Future<void> deleteAccount() async {
     try {
       await _apiClient.coreDio.delete('/users/profile');
@@ -225,16 +261,57 @@ class ApiServiceImpl
   @override
   Future<Capsule> createCapsule({
     required String title,
-    required String content,
+    required String type, // 'TEXT' or 'AUDIO'
+    String? contentText,
+    File? audioFile,
     required List<int> emotionIds,
   }) async {
     try {
-      final response = await _apiClient.coreDio.post('/capsules', data: {
+      String? s3Key;
+
+      if (type == 'AUDIO' && audioFile != null) {
+        // 1. Obtener URL pre-firmada
+        final fileName = audioFile.path.split('/').last;
+        final presignRes =
+            await _apiClient.coreDio.get('/s3/presigned-url', queryParameters: {
+          'filename': fileName,
+          'fileType': 'audio/mp4', // Genérico, o extraer de la extensión
+        });
+
+        final uploadUrl = presignRes.data['uploadUrl'];
+        s3Key = presignRes.data['key'];
+
+        // 2. Subir directamente a S3
+        final fileBytes = await audioFile.readAsBytes();
+        await Dio().put(
+          uploadUrl,
+          data: fileBytes,
+          options: Options(
+            headers: {
+              Headers.contentTypeHeader: 'audio/mp4',
+            },
+          ),
+        );
+      }
+
+      // 3. Crear la cápsula en el Backend
+      final Map<String, dynamic> body = {
         'title': title,
-        'contentType': 'TEXT',
-        'contentText': content,
+        'contentType': type,
         'emotionIds': emotionIds,
-      });
+      };
+
+      if (type == 'TEXT') {
+        body['contentText'] = contentText;
+      } else if (type == 'AUDIO') {
+        body['s3Key'] = s3Key;
+      }
+
+      debugPrint('==== ENVIANDO PETICIÓN CREATE CAPSULE ====');
+      debugPrint('Body: $body');
+      debugPrint('==========================================');
+
+      final response = await _apiClient.coreDio.post('/capsules', data: body);
 
       final json = response.data;
       return Capsule.fromJson({
@@ -243,8 +320,52 @@ class ApiServiceImpl
         'content': json['contentText'] ?? '',
       });
     } on DioException catch (e) {
+      final data = e.response?.data;
+      final errorMsg = data?['error'] ?? e.message;
+      final details = data?['details'] ?? 'Sin detalles adicionales';
+
+      debugPrint('==== ERROR EN CREATE CAPSULE ====');
+      debugPrint('Status Code: ${e.response?.statusCode}');
+      debugPrint('Error Backend: $errorMsg');
+      debugPrint('Detalles: $details');
+      debugPrint('=================================');
+
+      throw Exception('Error al crear cápsula: $errorMsg\nDetalles: $details');
+    }
+  }
+
+  @override
+  Future<Capsule> updateCapsule(
+    String id, {
+    String? title,
+    List<int>? emotionIds,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {};
+      if (title != null) body['title'] = title;
+      if (emotionIds != null) body['emotionIds'] = emotionIds;
+
+      final response =
+          await _apiClient.coreDio.patch('/capsules/$id', data: body);
+      final json = response.data;
+      return Capsule.fromJson({
+        ...json,
+        'is_active': json['isActive'] ?? true,
+        'content': json['contentText'] ?? '',
+      });
+    } on DioException catch (e) {
       final errorMsg = e.response?.data['error'] ?? e.message;
-      throw Exception('Error al crear cápsula: $errorMsg');
+      throw Exception('Error al actualizar cápsula: $errorMsg');
+    }
+  }
+
+  @override
+  Future<void> deleteCapsule(String id) async {
+    try {
+      await _apiClient.coreDio.delete('/capsules/$id');
+    } on DioException catch (e) {
+      final errorMsg = e.response?.data['error'] ?? e.message;
+      throw Exception('Error al eliminar cápsula: $errorMsg');
     }
   }
 
@@ -401,5 +522,17 @@ class ApiServiceImpl
   Future<String> getClinicalReportUrl() async {
     final reportsService = HttpReportsApiService();
     return await reportsService.getClinicalReportUrl();
+  }
+
+  @override
+  Future<void> sendTelemetrySnapshot(String googleAccessToken) async {
+    try {
+      await _apiClient.coreDio.post('/telemetry/export', data: {
+        'googleAccessToken': googleAccessToken,
+      });
+    } on DioException catch (e) {
+      final errorMsg = e.response?.data['error'] ?? e.message;
+      throw Exception('Error enviando snapshot de telemetría: $errorMsg');
+    }
   }
 }
