@@ -22,32 +22,46 @@ class Capsule {
   });
 
   factory Capsule.fromJson(Map<String, dynamic> json) {
+    // Parse emotions: supports List<int>, List<Map>, comma-separated String
     List<int> parsedEmotions = [];
-    if (json['emotion_ids'] != null) {
-      if (json['emotion_ids'] is String) {
-        parsedEmotions = (json['emotion_ids'] as String)
-            .split(',')
-            .where((e) => e.isNotEmpty)
-            .map(int.parse)
-            .toList();
-      } else if (json['emotion_ids'] is List) {
-        parsedEmotions = List<int>.from(json['emotion_ids']);
-      }
+    final rawEmotions = json['emotion_ids'] ?? json['emotions'];
+    if (rawEmotions is String && rawEmotions.isNotEmpty) {
+      parsedEmotions = rawEmotions
+          .split(',')
+          .where((e) => e.isNotEmpty)
+          .map(int.parse)
+          .toList();
+    } else if (rawEmotions is List) {
+      parsedEmotions = rawEmotions.map((e) {
+        if (e is int) return e;
+        if (e is Map) return (e['id'] ?? e['emotionId'] ?? 0) as int;
+        return int.tryParse(e.toString()) ?? 0;
+      }).toList();
     } else if (json['emotion_id'] != null) {
-      // Fallback
       parsedEmotions = [json['emotion_id'] as int];
     }
 
+    // Backend returns camelCase: id, title, contentType, contentText, isActive, s3Key, createdAt
+    // Local DB returns snake_case: is_active, content, type, audio_path, created_at
+    final rawId = json['id'] ?? json['capsuleId'] ?? '';
+    final rawTitle = json['title'] ?? '';
+    final rawContent =
+        json['content'] ?? json['contentText'] ?? json['s3Key'] ?? '';
+    final rawIsActive = json['is_active'] ?? json['isActive'] ?? true;
+    final rawType = (json['type'] ?? json['contentType'] ?? 'TEXT').toString();
+    final rawAudio = json['audio_path'] ?? json['s3Key'];
+    final rawCreatedAt = json['created_at'] ?? json['createdAt'];
+
     return Capsule(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      content: json['content'] as String,
+      id: rawId.toString(),
+      title: rawTitle.toString(),
+      content: rawContent.toString(),
       emotionIds: parsedEmotions,
-      isActive: json['is_active'] as bool,
-      type: json['type'] as String? ?? 'texto',
-      audioPath: json['audio_path'] as String?,
-      createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'] as String)
+      isActive: rawIsActive == true || rawIsActive == 1,
+      type: rawType,
+      audioPath: rawAudio?.toString(),
+      createdAt: rawCreatedAt != null
+          ? DateTime.tryParse(rawCreatedAt.toString())
           : null,
       isSynced: json['is_synced'] == true || json['is_synced'] == 1,
     );

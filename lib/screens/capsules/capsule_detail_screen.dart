@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:intl/intl.dart';
 import '../../models/capsule.dart';
+import '../../config/theme.dart';
 
 class CapsuleDetailScreen extends StatefulWidget {
   final Capsule capsule;
@@ -24,11 +24,14 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
+  // Compare case-insensitively: backend sends 'AUDIO'/'TEXT', local DB may have 'audio'/'texto'
+  bool get _isAudio => widget.capsule.type.toUpperCase() == 'AUDIO';
+
   @override
   void initState() {
     super.initState();
 
-    if (widget.capsule.type == 'audio' && widget.capsule.audioPath != null) {
+    if (_isAudio && widget.capsule.audioPath != null) {
       _audioPlayer.onPlayerStateChanged.listen((state) {
         if (mounted) {
           setState(() => _isPlaying = state == PlayerState.playing);
@@ -65,7 +68,10 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
       await _audioPlayer.pause();
     } else {
       final path = widget.capsule.audioPath!;
-      if (File(path).existsSync()) {
+      // If it's a URL (S3), stream it directly; otherwise play local file
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        await _audioPlayer.play(UrlSource(path));
+      } else if (File(path).existsSync()) {
         await _audioPlayer.play(DeviceFileSource(path));
       } else {
         if (mounted) {
@@ -86,12 +92,32 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
     return '$minutes:$seconds';
   }
 
+  /// Format date without requiring locale initialization
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return 'Fecha no disponible';
+    final months = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre'
+    ];
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '${dt.day} de ${months[dt.month - 1]} ${dt.year}, $h:$m';
+  }
+
   @override
   Widget build(BuildContext context) {
     final capsule = widget.capsule;
-    final dateFormatted = capsule.createdAt != null
-        ? DateFormat('d MMMM yyyy, HH:mm', 'es').format(capsule.createdAt!)
-        : 'Fecha no disponible';
+    final dateFormatted = _formatDate(capsule.createdAt);
 
     return Scaffold(
       appBar: AppBar(
@@ -161,7 +187,7 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 24),
-            if (capsule.type == 'texto') ...[
+            if (!_isAudio && capsule.content.isNotEmpty) ...[
               Text(
                 capsule.content,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -169,7 +195,7 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
                       fontSize: 16,
                     ),
               ),
-            ] else if (capsule.type == 'audio') ...[
+            ] else if (_isAudio) ...[
               _buildAudioPlayer(),
             ],
             if (!capsule.isSynced) ...[

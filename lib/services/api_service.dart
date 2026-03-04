@@ -32,12 +32,31 @@ class ApiServiceImpl
         'password': password,
       });
 
+      // 🐛 DEBUG: ver exactamente qué devuelve el backend
+      debugPrint('==== RESPUESTA LOGIN BACKEND ====');
+      debugPrint('Type: ${response.data.runtimeType}');
+      debugPrint('Data: ${response.data}');
+      debugPrint('=================================');
+
       final data = response.data;
-      final token = data['token'];
-      final userData = data['user'];
+
+      // Handle both flat response { token, user } and nested formats
+      String token = '';
+      Map<String, dynamic> userData = {};
+
+      if (data is Map<String, dynamic>) {
+        token = data['token'] ?? data['accessToken'] ?? '';
+        final rawUser = data['user'] ?? data['userData'] ?? data;
+        if (rawUser is Map<String, dynamic>) {
+          userData = rawUser;
+        }
+      } else {
+        throw Exception(
+            'Formato de respuesta inesperado del servidor: ${data.runtimeType}');
+      }
 
       final user = User(
-        id: userData['id'] ?? userData['userId'] ?? '',
+        id: (userData['id'] ?? userData['userId'] ?? '').toString(),
         email: userData['email'] ?? email,
         nombrePreferido:
             userData['name'] ?? userData['preferredName'] ?? 'Usuario',
@@ -52,8 +71,15 @@ class ApiServiceImpl
 
       return user;
     } on DioException catch (e) {
-      throw Exception(e.response?.data['error'] ??
-          'Error de red durante el login: ${e.message}');
+      debugPrint('==== ERROR LOGIN ====');
+      debugPrint('Status: ${e.response?.statusCode}');
+      debugPrint('Data: ${e.response?.data}');
+      debugPrint('====================');
+      final errorData = e.response?.data;
+      final errorMsg = errorData is Map
+          ? (errorData['error'] ?? errorData['message'] ?? e.message)
+          : e.message;
+      throw Exception('Error en login: $errorMsg');
     }
   }
 
@@ -70,9 +96,10 @@ class ApiServiceImpl
         'preferredName': nombrePreferido,
       });
 
-      final data = response.data;
-      final token = data['token'];
-      final userId = data['userId'];
+      // Backend returns: { token, userId }  (no "user" object)
+      final data = response.data as Map<String, dynamic>;
+      final token = data['token'] as String;
+      final userId = (data['userId'] ?? '').toString();
 
       final user = User(
         id: userId,
@@ -88,8 +115,15 @@ class ApiServiceImpl
 
       return user;
     } on DioException catch (e) {
-      throw Exception(e.response?.data['error'] ??
-          'Error de red durante el registro: ${e.message}');
+      debugPrint('==== ERROR REGISTER ====');
+      debugPrint('Status: ${e.response?.statusCode}');
+      debugPrint('Data: ${e.response?.data}');
+      debugPrint('=======================');
+      final errorData = e.response?.data;
+      final errorMsg = errorData is Map
+          ? (errorData['error'] ?? errorData['message'] ?? e.message)
+          : e.message;
+      throw Exception('Error en registro: $errorMsg');
     }
   }
 
@@ -179,15 +213,24 @@ class ApiServiceImpl
 
   @override
   Future<List<Emotion>> getEmotions() async {
-    // MOCK: Backend aún no tiene GET /emotions
-    return [
-      Emotion(id: 1, name: "Miedo"),
-      Emotion(id: 2, name: "Tristeza"),
-      Emotion(id: 3, name: "Ira"),
-      Emotion(id: 4, name: "Ansiedad"),
-      Emotion(id: 5, name: "Vacío"),
-    ];
+    try {
+      final response = await _apiClient.coreDio.get('/catalogs/emotions');
+      if (response.data is List) {
+        return (response.data as List).map((e) => Emotion.fromJson(e)).toList();
+      }
+      return _mockEmotions();
+    } catch (_) {
+      return _mockEmotions();
+    }
   }
+
+  List<Emotion> _mockEmotions() => [
+        Emotion(id: 1, name: "Miedo"),
+        Emotion(id: 2, name: "Tristeza"),
+        Emotion(id: 3, name: "Ira"),
+        Emotion(id: 4, name: "Ansiedad"),
+        Emotion(id: 5, name: "Vacío"),
+      ];
 
   @override
   Future<List<VictoryType>> getVictoryTypes() async {
@@ -270,24 +313,34 @@ class ApiServiceImpl
       String? s3Key;
 
       if (type == 'AUDIO' && audioFile != null) {
-        // 1. Obtener URL pre-firmada
+        // PASO 1: Obtener URL pre-firmada desde el backend
         final fileName = audioFile.path.split('/').last;
         final presignRes =
             await _apiClient.coreDio.get('/s3/presigned-url', queryParameters: {
           'filename': fileName,
-          'fileType': 'audio/mp4', // Genérico, o extraer de la extensión
+          'fileType': 'audio/mp4',
         });
 
-        final uploadUrl = presignRes.data['uploadUrl'];
-        s3Key = presignRes.data['key'];
+        debugPrint('==== PRESIGNED URL RESPONSE ====');
+        debugPrint('Type: ${presignRes.data.runtimeType}');
+        debugPrint('Data: ${presignRes.data}');
+        debugPrint('================================');
 
-        // 2. Subir directamente a S3
+        final presignData = presignRes.data as Map<String, dynamic>;
+        final uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
+        // Jaitovich devuelve fileUrl (URL limpia) y uploadUrl (pre-signed S3)
+        s3Key = presignData['fileUrl'] ??
+            presignData['key'] ??
+            presignData['s3Key'];
+
+        // PASO 2: Subir directamente a S3 con PUT (no POST)
         final fileBytes = await audioFile.readAsBytes();
         await Dio().put(
           uploadUrl,
           data: fileBytes,
           options: Options(
             headers: {
+              // Content-Type DEBE coincidir con el que se pidió arriba
               Headers.contentTypeHeader: 'audio/mp4',
             },
           ),
@@ -320,9 +373,20 @@ class ApiServiceImpl
         'content': json['contentText'] ?? '',
       });
     } on DioException catch (e) {
-      final data = e.response?.data;
-      final errorMsg = data?['error'] ?? e.message;
-      final details = data?['details'] ?? 'Sin detalles adicionales';
+      final rawData = e.response?.data;
+      String errorMsg;
+      String details;
+
+      if (rawData is Map<String, dynamic>) {
+        errorMsg = rawData['error'] ??
+            rawData['message'] ??
+            e.message ??
+            'Error desconocido';
+        details = rawData['details']?.toString() ?? 'Sin detalles adicionales';
+      } else {
+        errorMsg = e.message ?? 'Error desconocido';
+        details = rawData?.toString() ?? 'Sin detalles adicionales';
+      }
 
       debugPrint('==== ERROR EN CREATE CAPSULE ====');
       debugPrint('Status Code: ${e.response?.statusCode}');
@@ -424,28 +488,67 @@ class ApiServiceImpl
   }
 
   @override
-  Future<Crisis> updateCrisis(String id,
-      {String? evaluation, bool? breathingCompleted}) async {
+  Future<Crisis> updateCrisisProgress(
+    String id, {
+    bool? breathingExerciseCompleted,
+    String? usedCapsuleId,
+  }) async {
     try {
-      // 1. Terminar Crisis
-      final response = await _apiClient.coreDio.put('/crisis/\$id/end', data: {
-        'breathingCompleted': breathingCompleted ?? true,
-        // Backend maps evaluation string to an ID typically, let's keep it null if unknown or use notes
-        'notes': evaluation
-      });
+      final Map<String, dynamic> body = {};
+      if (breathingExerciseCompleted != null) {
+        body['breathingExerciseCompleted'] = breathingExerciseCompleted;
+      }
+      if (usedCapsuleId != null) body['usedCapsuleId'] = usedCapsuleId;
 
-      final data = response.data['crisis'];
+      await _apiClient.coreDio.patch('/crisis/$id/progress', data: body);
 
       return Crisis(
-        id: data['crisisId'],
-        startedAt: DateTime.tryParse(data['startedAt']) ?? DateTime.now(),
+        id: id,
+        startedAt: DateTime.now(),
+        emotion: 'En progreso',
+        evaluation: '',
+        breathingCompleted: breathingExerciseCompleted ?? false,
+      );
+    } on DioException catch (e) {
+      print('Error actualizando progreso de crisis: ${e.response?.data}');
+      throw Exception('Error al actualizar el progreso de la crisis.');
+    }
+  }
+
+  @override
+  Future<Crisis> saveCrisisReflection(
+    String id, {
+    String? triggerDesc,
+    String? location,
+    String? companion,
+    String? substanceUse,
+    String? notes,
+    int? finalEvaluationId,
+  }) async {
+    try {
+      final response = await _apiClient.coreDio.put(
+        '/crisis/$id/reflection',
+        data: {
+          if (triggerDesc != null) 'triggerDesc': triggerDesc,
+          if (location != null) 'location': location,
+          if (companion != null) 'companion': companion,
+          if (substanceUse != null) 'substanceUse': substanceUse,
+          if (notes != null) 'notes': notes,
+          if (finalEvaluationId != null) 'finalEvaluationId': finalEvaluationId,
+        },
+      );
+
+      final data = response.data['crisis'] ?? response.data;
+      return Crisis(
+        id: data['crisisId'] ?? id,
+        startedAt: DateTime.tryParse(data['startedAt'] ?? '') ?? DateTime.now(),
         emotion: 'Completada',
-        evaluation: evaluation ?? '',
+        evaluation: notes ?? '',
         breathingCompleted: data['breathingExerciseCompleted'] ?? false,
       );
     } on DioException catch (e) {
-      print('Error finalizando crisis: ${e.response?.data}');
-      throw Exception('Error al actualizar crisis.');
+      print('Error guardando reflexión: ${e.response?.data}');
+      throw Exception('Error al guardar la reflexión de la crisis.');
     }
   }
 
@@ -508,14 +611,59 @@ class ApiServiceImpl
   // ---------------------------------------------------------------------------
   @override
   Future<User> updateProfile({String? preferredName, File? avatarImage}) async {
-    final prefs = await SharedPreferences.getInstance();
-    return User(
-      id: 'uuid-user-123',
-      email: prefs.getString('user_email') ?? 'email@test.com',
-      nombrePreferido:
-          preferredName ?? prefs.getString('user_nombre') ?? 'User',
-      token: prefs.getString('auth_token') ?? '',
-    );
+    try {
+      String? avatarKey;
+
+      // 1. If there's an avatar image, upload it to S3 first
+      if (avatarImage != null) {
+        final fileName = avatarImage.path.split('/').last;
+        final presignRes =
+            await _apiClient.coreDio.get('/s3/presigned-url', queryParameters: {
+          'filename': fileName,
+          'fileType': 'image/jpeg',
+        });
+
+        final uploadUrl = presignRes.data['uploadUrl'];
+        avatarKey = presignRes.data['key'];
+
+        final fileBytes = await avatarImage.readAsBytes();
+        await Dio().put(
+          uploadUrl,
+          data: fileBytes,
+          options: Options(
+            headers: {Headers.contentTypeHeader: 'image/jpeg'},
+          ),
+        );
+      }
+
+      // 2. Call PUT /users/profile with updated data
+      final Map<String, dynamic> body = {};
+      if (preferredName != null) body['preferredName'] = preferredName;
+      if (avatarKey != null) body['avatarKey'] = avatarKey;
+
+      final response =
+          await _apiClient.coreDio.put('/users/profile', data: body);
+
+      final data = response.data['user'] ?? response.data;
+      final prefs = await SharedPreferences.getInstance();
+      final updatedName = data['preferredName'] ??
+          data['name'] ??
+          preferredName ??
+          prefs.getString('user_nombre') ??
+          'Usuario';
+
+      await prefs.setString('user_nombre', updatedName);
+
+      return User(
+        id: data['id'] ?? prefs.getString('user_id') ?? '',
+        email: data['email'] ?? prefs.getString('user_email') ?? '',
+        nombrePreferido: updatedName,
+        token: prefs.getString('auth_token') ?? '',
+      );
+    } on DioException catch (e) {
+      final errorMsg = e.response?.data?['error'] ?? e.message;
+      throw Exception('Error al actualizar perfil: $errorMsg');
+    }
   }
 
   @override
@@ -527,7 +675,7 @@ class ApiServiceImpl
   @override
   Future<void> sendTelemetrySnapshot(String googleAccessToken) async {
     try {
-      await _apiClient.coreDio.post('/telemetry/export', data: {
+      await _apiClient.coreDio.post('/telemetry/snapshot', data: {
         'googleAccessToken': googleAccessToken,
       });
     } on DioException catch (e) {

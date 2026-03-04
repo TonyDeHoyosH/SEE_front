@@ -42,10 +42,19 @@ abstract class CoreApiService {
 
   Future<Map<String, dynamic>> createCrisis(
       List<int> emotionIds, int intensityLevel);
-  Future<Crisis> updateCrisis(
+  Future<Crisis> updateCrisisProgress(
     String id, {
-    String? evaluation,
-    bool? breathingCompleted,
+    bool? breathingExerciseCompleted,
+    String? usedCapsuleId,
+  });
+  Future<Crisis> saveCrisisReflection(
+    String id, {
+    String? triggerDesc,
+    String? location,
+    String? companion,
+    String? substanceUse,
+    String? notes,
+    int? finalEvaluationId,
   });
   Future<List<Crisis>> getMyCrises();
 

@@ -174,7 +174,7 @@ class _CapsuleCardState extends State<_CapsuleCard> {
     _isActive = widget.capsule.isActive;
   }
 
-  Color get _iconColor => widget.capsule.type == 'audio'
+  Color get _iconColor => widget.capsule.type.toUpperCase() == 'AUDIO'
       ? AppTheme.accentPrimary
       : const Color(0xFFC4A8E8);
 
@@ -306,7 +306,7 @@ class _CapsuleCardState extends State<_CapsuleCard> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  widget.capsule.type == 'audio'
+                  widget.capsule.type.toUpperCase() == 'AUDIO'
                       ? Icons.mic_rounded
                       : Icons.text_fields_rounded,
                   size: 24,
@@ -342,7 +342,8 @@ class _CapsuleCardState extends State<_CapsuleCard> {
               ),
             ],
           ),
-          if (widget.capsule.type == 'texto') ...[
+          if (widget.capsule.type.toUpperCase() == 'TEXT' &&
+              widget.capsule.content.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
               widget.capsule.content,
@@ -350,13 +351,21 @@ class _CapsuleCardState extends State<_CapsuleCard> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-          ] else ...[
+          ] else if (widget.capsule.type.toUpperCase() == 'AUDIO') ...[
             const SizedBox(height: 16),
-            Text(
-              'Grabación de voz guardada',
-              style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
-                fontStyle: FontStyle.italic,
-              ),
+            Row(
+              children: [
+                const Icon(Icons.play_circle_outline,
+                    size: 18, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 6),
+                Text(
+                  'Grabación de voz',
+                  style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: const Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 16),

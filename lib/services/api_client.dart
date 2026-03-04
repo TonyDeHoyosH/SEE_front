@@ -5,12 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiClient {
   late Dio authDio;
   late Dio coreDio;
+  late Dio reportsDio;
 
   ApiClient() {
     final authBaseUrl =
-        dotenv.env['AUTH_BASE_URL'] ?? 'http://10.0.2.2:3001/api/auth';
+        dotenv.env['AUTH_BASE_URL'] ?? 'http://10.0.2.2:3001/api';
     final coreBaseUrl =
         dotenv.env['CORE_BASE_URL'] ?? 'http://10.0.2.2:3002/api';
+    final reportsBaseUrl =
+        dotenv.env['REPORTS_BASE_URL'] ?? 'http://10.0.2.2:3003/api';
 
     // Dio instance for Auth (login/register) - No token required
     authDio = Dio(BaseOptions(
@@ -26,8 +29,15 @@ class ApiClient {
       receiveTimeout: const Duration(seconds: 10),
     ));
 
-    // Interceptor for Authentication
-    coreDio.interceptors.add(InterceptorsWrapper(
+    // Dio instance for Report Service - Token injected automatically
+    reportsDio = Dio(BaseOptions(
+      baseUrl: reportsBaseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+    ));
+
+    // Shared auth interceptor for coreDio and reportsDio
+    final authInterceptor = InterceptorsWrapper(
       onRequest: (options, handler) async {
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('auth_token');
@@ -37,7 +47,21 @@ class ApiClient {
         return handler.next(options);
       },
       onError: (DioException e, handler) {
-        // Here you could handle 401 globally to log the user out
+        return handler.next(e);
+      },
+    );
+
+    coreDio.interceptors.add(authInterceptor);
+    reportsDio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('auth_token');
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        return handler.next(options);
+      },
+      onError: (DioException e, handler) {
         return handler.next(e);
       },
     ));

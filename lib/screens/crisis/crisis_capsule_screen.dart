@@ -66,13 +66,23 @@ class CrisisCapsuleScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const BreathingScreen(),
-                          ),
-                        );
+                      onPressed: () async {
+                        // Notify backend that this capsule was used
+                        final crisisId =
+                            context.read<CrisisProvider>().currentCrisis?.id;
+                        if (crisisId != null) {
+                          await context
+                              .read<CrisisProvider>()
+                              .markCapsuleUsed(crisisId, capsule.id);
+                        }
+                        if (context.mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const BreathingScreen(),
+                            ),
+                          );
+                        }
                       },
                       child: const Padding(
                         padding: EdgeInsets.all(4.0),

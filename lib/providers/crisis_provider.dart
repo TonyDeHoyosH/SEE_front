@@ -47,10 +47,10 @@ class CrisisProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _coreService.updateCrisis(
+      // Step 1: Update progress (breathing + capsule used)
+      await _coreService.updateCrisisProgress(
         _currentCrisis!.id,
-        evaluation: evaluation,
-        breathingCompleted: breathingCompleted,
+        breathingExerciseCompleted: breathingCompleted,
       );
 
       await LocalDatabaseService.insertCrisis({
@@ -88,13 +88,43 @@ class CrisisProvider extends ChangeNotifier {
     }
   }
 
+  /// Called when the user views and interacts with the recommended capsule.
+  /// Notifies the backend which capsule was used during the crisis.
+  Future<void> markCapsuleUsed(String crisisId, String capsuleId) async {
+    try {
+      await _coreService.updateCrisisProgress(
+        crisisId,
+        usedCapsuleId: capsuleId,
+      );
+    } catch (_) {
+      // Non-critical: do not block navigation if this fails
+    }
+  }
+
   Future<void> saveReflection({
     required String crisisId,
     required String trigger,
     required String location,
     required String company,
     required String substance,
+    String? notes,
+    int? finalEvaluationId,
   }) async {
+    // Step 2: Save reflection to backend
+    try {
+      await _coreService.saveCrisisReflection(
+        crisisId,
+        triggerDesc: trigger,
+        location: location,
+        companion: company,
+        substanceUse: substance,
+        notes: notes,
+        finalEvaluationId: finalEvaluationId,
+      );
+    } catch (_) {
+      // Si falla el backend, al menos guardamos local
+    }
+
     await LocalDatabaseService.updateCrisisReflection(
       crisisId,
       trigger: trigger,

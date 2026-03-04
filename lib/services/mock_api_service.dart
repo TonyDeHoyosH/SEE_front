@@ -237,23 +237,39 @@ class MockApiService
   }
 
   @override
-  Future<Crisis> updateCrisis(
+  Future<Crisis> updateCrisisProgress(
     String id, {
-    String? evaluation,
-    bool? breathingCompleted,
+    bool? breathingExerciseCompleted,
+    String? usedCapsuleId,
   }) async {
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 500));
+    return Crisis(
+      id: id,
+      startedAt: DateTime.now().subtract(const Duration(minutes: 5)),
+      emotion: 'En progreso',
+      evaluation: '',
+      breathingCompleted: breathingExerciseCompleted ?? false,
+    );
+  }
 
-    final crisisJson = {
-      "id": id,
-      "started_at":
-          DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String(),
-      "emotion": "Ansiedad",
-      "evaluation": evaluation ?? "Mejor",
-      "breathing_completed": breathingCompleted ?? true,
-    };
-
-    return Crisis.fromJson(crisisJson);
+  @override
+  Future<Crisis> saveCrisisReflection(
+    String id, {
+    String? triggerDesc,
+    String? location,
+    String? companion,
+    String? substanceUse,
+    String? notes,
+    int? finalEvaluationId,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    return Crisis(
+      id: id,
+      startedAt: DateTime.now().subtract(const Duration(minutes: 5)),
+      emotion: 'Ansiedad',
+      evaluation: notes ?? 'Mejor',
+      breathingCompleted: true,
+    );
   }
 
   @override

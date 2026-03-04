@@ -16,7 +16,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE crisis (
@@ -41,7 +41,6 @@ class LocalDatabaseService {
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             content TEXT NOT NULL DEFAULT '',
-            emotion_id INTEGER NOT NULL,
             emotion_ids TEXT,
             is_active INTEGER NOT NULL DEFAULT 1,
             type TEXT NOT NULL DEFAULT 'texto',
@@ -111,6 +110,29 @@ class LocalDatabaseService {
         }
         if (oldVersion < 6) {
           await db.execute('ALTER TABLE capsules ADD COLUMN emotion_ids TEXT');
+        }
+        if (oldVersion < 7) {
+          // Recreate capsules table without the deprecated emotion_id NOT NULL column
+          await db.execute('''
+            CREATE TABLE capsules_new (
+              id TEXT PRIMARY KEY,
+              title TEXT NOT NULL,
+              content TEXT NOT NULL DEFAULT '',
+              emotion_ids TEXT,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              type TEXT NOT NULL DEFAULT 'texto',
+              audio_path TEXT,
+              is_synced INTEGER NOT NULL DEFAULT 0,
+              created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+          ''');
+          await db.execute('''
+            INSERT INTO capsules_new (id, title, content, emotion_ids, is_active, type, audio_path, is_synced, created_at)
+            SELECT id, title, content, emotion_ids, is_active, type, audio_path, is_synced, created_at
+            FROM capsules
+          ''');
+          await db.execute('DROP TABLE capsules');
+          await db.execute('ALTER TABLE capsules_new RENAME TO capsules');
         }
       },
     );
