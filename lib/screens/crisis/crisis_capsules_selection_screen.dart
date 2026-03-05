@@ -128,7 +128,7 @@ class _CrisisCapsulesSelectionScreenState
                             itemBuilder: (context, index) {
                               final capsule = _capsules[index];
                               return GlassCard(
-                                onTap: () {
+                                onTap: () async {
                                   final emotionNames =
                                       capsule.emotionIds.isEmpty
                                           ? 'General'
@@ -140,7 +140,8 @@ class _CrisisCapsulesSelectionScreenState
                                                       ?.name ??
                                                   'Desconocida')
                                               .join(', ');
-                                  Navigator.push(
+                                  // Esperar a que el usuario regrese de la cápsula
+                                  await Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => CapsuleDetailScreen(
@@ -149,6 +150,19 @@ class _CrisisCapsulesSelectionScreenState
                                       ),
                                     ),
                                   );
+                                  // Al regresar, registrar que esta cápsula fue usada
+                                  if (!context.mounted) return;
+                                  final crisisId = context
+                                      .read<CrisisProvider>()
+                                      .currentCrisis
+                                      ?.id;
+                                  if (crisisId != null) {
+                                    debugPrint(
+                                        '[Crisis] Marcando cápsula usada: ${capsule.id}');
+                                    await context
+                                        .read<CrisisProvider>()
+                                        .markCapsuleUsed(crisisId, capsule.id);
+                                  }
                                 },
                                 padding: const EdgeInsets.all(16),
                                 child: Row(

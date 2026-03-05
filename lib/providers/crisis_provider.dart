@@ -39,17 +39,17 @@ class CrisisProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> endCrisis(String evaluation, bool breathingCompleted) async {
+  Future<void> endCrisis(
+      int evaluationId, String evaluation, bool breathingCompleted) async {
     if (_currentCrisis == null) return;
 
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    // Convertir el texto de evaluación a ID numérico inmediatamente
-    // IDs coinciden con el catálogo del backend: Mejor=1, Igual=2, Peor=3
-    final evalId = _evaluationToId(evaluation);
-    debugPrint('[Crisis] endCrisis evaluation="$evaluation" evalId=$evalId '
+    // Ahora recibimos el ID real desde el catálogo
+    debugPrint(
+        '[Crisis] endCrisis evaluation="$evaluation" evalId=$evaluationId '
         'breathing=$breathingCompleted crisisId=${_currentCrisis!.id}');
 
     try {
@@ -59,9 +59,9 @@ class CrisisProvider extends ChangeNotifier {
       await _coreService.updateCrisisProgress(
         _currentCrisis!.id,
         breathingExerciseCompleted: breathingCompleted,
-        finalEvaluationId: evalId,
+        finalEvaluationId: evaluationId,
       );
-      debugPrint('[Crisis] PATCH /progress enviado con evalId=$evalId ✅');
+      debugPrint('[Crisis] PATCH /progress enviado con evalId=$evaluationId ✅');
 
       await LocalDatabaseService.insertCrisis({
         'id': _currentCrisis!.id,
@@ -98,15 +98,6 @@ class CrisisProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  /// Convierte el texto de evaluación a su ID numérico del catálogo backend.
-  int? _evaluationToId(String evaluation) {
-    final lower = evaluation.toLowerCase();
-    if (lower.contains('mejor')) return 1;
-    if (lower.contains('igual') || lower.contains('neutral')) return 2;
-    if (lower.contains('peor')) return 3;
-    return null;
   }
 
   /// Called when the user views and interacts with the recommended capsule.

@@ -6,11 +6,13 @@ import '../../config/theme.dart';
 
 class PostCrisisReflectionScreen extends StatefulWidget {
   final String crisisId;
+  final int evaluationId;
   final String evaluation;
 
   const PostCrisisReflectionScreen({
     super.key,
     required this.crisisId,
+    required this.evaluationId,
     required this.evaluation,
   });
 
@@ -79,7 +81,7 @@ class _PostCrisisReflectionScreenState
         location: location,
         company: company,
         substance: _selectedSubstance!,
-        finalEvaluationId: _evaluationToId(widget.evaluation),
+        finalEvaluationId: widget.evaluationId,
       );
 
       if (mounted) {
@@ -227,16 +229,6 @@ class _PostCrisisReflectionScreenState
         ),
       ),
     );
-  }
-
-  /// Maps the evaluation description text to its backend ID.
-  /// IDs match the catalog seeded in the database (Mejor=1, Igual=2, Peor=3).
-  int? _evaluationToId(String evaluation) {
-    final lower = evaluation.toLowerCase();
-    if (lower.contains('mejor')) return 1;
-    if (lower.contains('igual')) return 2;
-    if (lower.contains('peor')) return 3;
-    return null;
   }
 
   Widget _buildRadioSection({
