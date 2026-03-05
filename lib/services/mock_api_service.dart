@@ -366,15 +366,21 @@ class MockApiService
   }
 
   @override
-  Future<Capsule> updateCapsule(String id,
-      {String? title, List<int>? emotionIds}) async {
+  Future<Capsule> updateCapsule(
+    String id, {
+    String? title,
+    String? contentText,
+    List<int>? emotionIds,
+    bool? isActive,
+    File? audioFile,
+  }) async {
     await Future.delayed(const Duration(seconds: 1));
     return Capsule(
         id: id,
         title: title ?? 'Editado',
-        content: '...',
+        content: contentText ?? '...',
         emotionIds: emotionIds ?? [],
-        isActive: true);
+        isActive: isActive ?? true);
   }
 
   @override

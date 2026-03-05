@@ -36,7 +36,10 @@ abstract class CoreApiService {
   Future<Capsule> updateCapsule(
     String id, {
     String? title,
+    String? contentText,
     List<int>? emotionIds,
+    bool? isActive,
+    File? audioFile,
   });
   Future<void> deleteCapsule(String id);
 

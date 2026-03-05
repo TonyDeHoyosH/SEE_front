@@ -44,10 +44,13 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
     if (widget.capsule != null) {
       _titleController.text = widget.capsule!.title;
       _contentController.text = widget.capsule!.content;
-      _capsuleType = widget.capsule!.type;
+      _capsuleType =
+          widget.capsule!.type.toLowerCase() == 'audio' ? 'audio' : 'texto';
       _audioPath = widget.capsule!.audioPath;
       _selectedEmotionIds = List.from(widget.capsule!.emotionIds);
       _charCount = _contentController.text.length;
+      // Skip step 0 (type selector) when editing — type is fixed
+      _currentStep = 1;
     }
 
     _contentController.addListener(() {
@@ -111,6 +114,9 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
         await context.read<CoreApiService>().updateCapsule(
               capsuleId,
               title: title,
+              contentText: _capsuleType == 'texto'
+                  ? _contentController.text.trim()
+                  : null,
               emotionIds: _selectedEmotionIds,
             );
         await LocalDatabaseService.updateCapsule(capsuleData);
@@ -129,19 +135,78 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
         Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al crear cápsula: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (mounted) _showError(e.toString());
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _showError(String errorMessage) {
+    // Detectar error de token S3 expirado: mostrar diálogo informativo
+    if (errorMessage.contains('S3_EXPIRED_TOKEN')) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.cloud_off, color: Color(0xFFEF4444)),
+              SizedBox(width: 8),
+              Text('Servicio no disponible'),
+            ],
+          ),
+          content: const Text(
+            'El servidor no puede recibir archivos de audio en este momento '
+            'porque sus credenciales de almacenamiento han expirado.\n\n'
+            'Por favor avisa al administrador del sistema y vuelve a intentarlo más tarde.\n\n'
+            'Mientras tanto, puedes crear cápsulas de texto sin problema.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Error de subida S3 (red u otro)
+    if (errorMessage.contains('S3_UPLOAD_ERROR')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.wifi_off, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'No se pudo subir el audio. Verifica tu conexión e intenta de nuevo.',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Error genérico
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error al crear cápsula: $errorMessage'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   void _goBack() {
@@ -313,8 +378,8 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Nueva Cápsula'),
-              if (_currentStep > 0)
+              Text(widget.capsule != null ? 'Editar Cápsula' : 'Nueva Cápsula'),
+              if (_currentStep > (widget.capsule != null ? 0 : 0))
                 Text(
                   _capsuleType == 'texto'
                       ? 'Paso ${_currentStep + 1} de 3'

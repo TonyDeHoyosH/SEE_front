@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/base_api_service.dart';
 import '../../services/local_database_service.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/floating_navbar.dart';
@@ -77,10 +78,16 @@ class _DashboardViewState extends State<_DashboardView> {
   }
 
   Future<Map<String, int>> _loadMetrics() async {
-    final capsules = await LocalDatabaseService.countActiveCapsules();
     final victories = await LocalDatabaseService.countWeeklyVictories();
+    int capsuleCount = 0;
+    try {
+      final capsules = await context.read<CoreApiService>().getCapsules();
+      capsuleCount = capsules.where((c) => c.isActive).length;
+    } catch (_) {
+      capsuleCount = await LocalDatabaseService.countActiveCapsules();
+    }
     return {
-      'capsules': capsules,
+      'capsules': capsuleCount,
       'victories': victories,
     };
   }

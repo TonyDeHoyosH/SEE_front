@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'base_api_service.dart';
 import 'api_client.dart';
+import 'local_database_service.dart';
 import 'reports_api_service.dart';
 
 import '../models/user.dart';
@@ -271,25 +272,104 @@ class ApiServiceImpl
   Future<List<Capsule>> getCapsules({int? emotionId}) async {
     try {
       final response = await _apiClient.coreDio.get('/capsules');
-      final data = response.data['capsules'] as List;
 
-      var capsules = data.map((json) {
-        // Transform incoming Prisma JSON to match what Capsule.fromJson expects
-        return Capsule.fromJson({
-          ...json,
-          'is_active': json['isActive'] ?? true,
-          'content': json['contentText'] ?? '',
-        });
-      }).toList();
-
-      if (emotionId != null) {
-        capsules =
-            capsules.where((c) => c.emotionIds.contains(emotionId)).toList();
+      // Response is { capsules: [...] } or directly a list
+      List rawList;
+      final d = response.data;
+      if (d is List) {
+        rawList = d;
+      } else if (d is Map && d['capsules'] is List) {
+        rawList = d['capsules'] as List;
+      } else {
+        rawList = [];
       }
 
+      // Build capsules, merging local DB content when backend has null
+      final List<Capsule> capsules = [];
+      for (final json in rawList) {
+        // Parse targetEmotions -> List<int>
+        final rawEmotions = json['targetEmotions'] as List? ?? [];
+        final emotionIds = rawEmotions.map<int>((e) {
+          return ((e['emotionId'] ?? e['id']) as num).toInt();
+        }).toList();
+
+        // DEBUG: ver todos los campos que devuelve el backend para capsulas de audio
+        final contentType = (json['contentType'] ?? 'TEXT').toString();
+        if (contentType.toUpperCase() == 'AUDIO') {
+          debugPrint('==== CAPSULE AUDIO JSON ====');
+          debugPrint('Keys: ${json.keys.toList()}');
+          debugPrint('s3Key:       ${json["s3Key"]}');
+          debugPrint('audioUrl:    ${json["audioUrl"]}');
+          debugPrint('downloadUrl: ${json["downloadUrl"]}');
+          debugPrint('signedUrl:   ${json["signedUrl"]}');
+          debugPrint('fileUrl:     ${json["fileUrl"]}');
+          debugPrint('============================');
+        }
+
+        // Prioridad para la URL de audio:
+        // 1. Campo con URL firmada que el backend devuelve directamente (si existe)
+        // 2. Construir desde s3Key (URL sin firma -> 403 si bucket es privado)
+        final rawSignedUrl = json['audioUrl']?.toString() ??
+            json['downloadUrl']?.toString() ??
+            json['signedUrl']?.toString() ??
+            json['fileUrl']?.toString();
+
+        final s3Key = json['s3Key']?.toString();
+        String? audioUrl = rawSignedUrl;
+
+        if (audioUrl == null && s3Key != null && s3Key.isNotEmpty) {
+          audioUrl =
+              (s3Key.startsWith('http://') || s3Key.startsWith('https://'))
+                  ? s3Key
+                  : 'https://awos-see.s3.us-east-1.amazonaws.com/' + s3Key;
+        }
+
+        final backendContent = json['contentText']?.toString();
+        final capsuleId = (json['capsuleId'] ?? json['id'] ?? '').toString();
+
+        // Fallback: contenido/audio desde DB local
+        String localContent = backendContent ?? '';
+        String? localAudio = audioUrl;
+
+        final localRow = await LocalDatabaseService.getCapsuleById(capsuleId);
+        if (localRow != null) {
+          localContent =
+              backendContent ?? (localRow['content'] as String? ?? '');
+          final localFilePath = localRow['audio_path'] as String?;
+
+          // Si la URL remota NO tiene firma, preferir el archivo local si existe
+          final hasSignedUrl =
+              audioUrl != null && audioUrl.contains('X-Amz-Signature');
+          if (!hasSignedUrl &&
+              localFilePath != null &&
+              File(localFilePath).existsSync()) {
+            localAudio = localFilePath;
+          } else {
+            localAudio = audioUrl ?? localFilePath;
+          }
+        }
+
+        capsules.add(Capsule.fromJson({
+          'id': capsuleId,
+          'title': json['title'] ?? '',
+          'type': contentType,
+          'content': localContent,
+          'audio_path': localAudio,
+          'is_active': json['isActive'] ?? true,
+          'emotion_ids': emotionIds.join(','),
+          'created_at': json['createdAt'],
+          'is_synced': true,
+        }));
+      }
+
+      if (emotionId != null) {
+        return capsules.where((c) => c.emotionIds.contains(emotionId)).toList();
+      }
       return capsules;
     } on DioException catch (e) {
-      throw Exception('Error al obtener cápsulas: ${e.message}');
+      debugPrint(
+          'ERROR getCapsules: ${e.response?.statusCode} ${e.response?.data}');
+      throw Exception('Error al obtener capsulas: ${e.message}');
     }
   }
 
@@ -335,16 +415,37 @@ class ApiServiceImpl
 
         // PASO 2: Subir directamente a S3 con PUT (no POST)
         final fileBytes = await audioFile.readAsBytes();
-        await Dio().put(
-          uploadUrl,
-          data: fileBytes,
-          options: Options(
-            headers: {
-              // Content-Type DEBE coincidir con el que se pidió arriba
-              Headers.contentTypeHeader: 'audio/mp4',
-            },
-          ),
-        );
+        try {
+          await Dio().put(
+            uploadUrl,
+            data: fileBytes,
+            options: Options(
+              headers: {
+                Headers.contentTypeHeader: 'audio/mp4',
+              },
+            ),
+          );
+        } on DioException catch (s3Error) {
+          // Detectar el error específico de token expirado en S3
+          final rawBody = s3Error.response?.data?.toString() ?? '';
+          debugPrint('==== ERROR SUBIDA S3 ====');
+          debugPrint('Status: ${s3Error.response?.statusCode}');
+          debugPrint('Body: $rawBody');
+          debugPrint('=========================');
+
+          if (rawBody.contains('ExpiredToken') || rawBody.contains('expired')) {
+            throw Exception(
+              'S3_EXPIRED_TOKEN: Las credenciales del servidor para subir '
+              'archivos han expirado. Por favor contacta al administrador '
+              'para renovarlas e intenta de nuevo.',
+            );
+          }
+          throw Exception(
+            'S3_UPLOAD_ERROR: No se pudo subir el audio '
+            '(código ${s3Error.response?.statusCode}). '
+            'Verifica tu conexión e intenta de nuevo.',
+          );
+        }
       }
 
       // 3. Crear la cápsula en el Backend
@@ -366,11 +467,35 @@ class ApiServiceImpl
 
       final response = await _apiClient.coreDio.post('/capsules', data: body);
 
-      final json = response.data;
+      final json = response.data as Map<String, dynamic>;
+
+      // Build audio URL from the s3Key returned by the backend
+      final createdS3Key = json['s3Key']?.toString();
+      String? createdAudioUrl;
+      if (createdS3Key != null && createdS3Key.isNotEmpty) {
+        createdAudioUrl = (createdS3Key.startsWith('http://') ||
+                createdS3Key.startsWith('https://'))
+            ? createdS3Key
+            : 'https://awos-see.s3.us-east-1.amazonaws.com/$createdS3Key';
+      }
+
+      // Parse emotion ids from targetEmotions if present
+      final rawEmotions = json['targetEmotions'] as List? ?? [];
+      final parsedIds = rawEmotions.map<int>((e) {
+        return ((e['emotionId'] ?? e['id']) as num).toInt();
+      }).toList();
+
       return Capsule.fromJson({
-        ...json,
-        'is_active': json['isActive'] ?? true,
+        'id': (json['capsuleId'] ?? json['id'] ?? '').toString(),
+        'title': json['title'] ?? '',
+        'type': (json['contentType'] ?? type).toString(),
         'content': json['contentText'] ?? '',
+        'audio_path': createdAudioUrl,
+        'is_active': json['isActive'] ?? true,
+        'emotion_ids':
+            parsedIds.isNotEmpty ? parsedIds.join(',') : emotionIds.join(','),
+        'created_at': json['createdAt'],
+        'is_synced': true,
       });
     } on DioException catch (e) {
       final rawData = e.response?.data;
@@ -402,24 +527,104 @@ class ApiServiceImpl
   Future<Capsule> updateCapsule(
     String id, {
     String? title,
+    String? contentText,
     List<int>? emotionIds,
+    bool? isActive,
+    File? audioFile,
   }) async {
     try {
       final Map<String, dynamic> body = {};
       if (title != null) body['title'] = title;
+      if (contentText != null) body['contentText'] = contentText;
       if (emotionIds != null) body['emotionIds'] = emotionIds;
+      if (isActive != null) body['isActive'] = isActive;
+
+      // Si hay un nuevo archivo de audio, subirlo a S3 primero
+      if (audioFile != null) {
+        final fileName = audioFile.path.split('/').last;
+        final presignRes =
+            await _apiClient.coreDio.get('/s3/presigned-url', queryParameters: {
+          'filename': fileName,
+          'fileType': 'audio/mp4',
+        });
+        final presignData = presignRes.data as Map<String, dynamic>;
+        final uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
+        final newS3Key = presignData['s3Key'] ??
+            presignData['key'] ??
+            presignData['fileUrl'];
+
+        final fileBytes = await audioFile.readAsBytes();
+        try {
+          await Dio().put(
+            uploadUrl,
+            data: fileBytes,
+            options: Options(
+              headers: {Headers.contentTypeHeader: 'audio/mp4'},
+            ),
+          );
+          body['s3Key'] = newS3Key;
+          debugPrint('==== AUDIO ACTUALIZADO EN S3: $newS3Key ====');
+        } on DioException catch (s3Error) {
+          final rawBody = s3Error.response?.data?.toString() ?? '';
+          if (rawBody.contains('ExpiredToken') || rawBody.contains('expired')) {
+            throw Exception(
+              'S3_EXPIRED_TOKEN: Las credenciales del servidor para subir '
+              'archivos han expirado.',
+            );
+          }
+          throw Exception(
+            'S3_UPLOAD_ERROR: No se pudo subir el audio '
+            '(código ${s3Error.response?.statusCode}).',
+          );
+        }
+      }
 
       final response =
           await _apiClient.coreDio.patch('/capsules/$id', data: body);
-      final json = response.data;
+      final json = response.data as Map<String, dynamic>;
+
+      // DEBUG: ver qué devuelve el backend en el PATCH
+      debugPrint('==== UPDATE CAPSULE RESPONSE ====');
+      debugPrint('Keys: ${json.keys.toList()}');
+      debugPrint('contentText: ${json["contentText"]}');
+      debugPrint('title: ${json["title"]}');
+      debugPrint('=================================');
+
+      // Parse targetEmotions
+      final rawEmotions = json['targetEmotions'] as List? ?? [];
+      final parsedIds = rawEmotions.map<int>((e) {
+        return ((e['emotionId'] ?? e['id']) as num).toInt();
+      }).toList();
+
+      final s3Key = json['s3Key']?.toString();
+      final audioUrl = (s3Key != null && s3Key.isNotEmpty)
+          ? 'https://awos-see.s3.us-east-1.amazonaws.com/' + s3Key
+          : null;
+
+      // Si el backend no devuelve contentText en la respuesta del PATCH,
+      // usamos el valor que enviamos nosotros (ya lo tenemos en 'body').
+      final resolvedContent = json['contentText']?.toString() ??
+          body['contentText']?.toString() ??
+          '';
+
       return Capsule.fromJson({
-        ...json,
+        'id': (json['capsuleId'] ?? json['id'] ?? id).toString(),
+        'title': json['title']?.toString() ?? body['title']?.toString() ?? '',
+        'type': (json['contentType'] ?? 'TEXT').toString(),
+        'content': resolvedContent,
+        'audio_path': audioUrl,
         'is_active': json['isActive'] ?? true,
-        'content': json['contentText'] ?? '',
+        'emotion_ids': parsedIds.isNotEmpty
+            ? parsedIds.join(',')
+            : (body['emotionIds'] as List?)?.join(',') ?? '',
+        'created_at': json['createdAt'],
+        'is_synced': true,
       });
     } on DioException catch (e) {
-      final errorMsg = e.response?.data['error'] ?? e.message;
-      throw Exception('Error al actualizar cápsula: $errorMsg');
+      final errorMsg = e.response?.data is Map
+          ? e.response?.data['error'] ?? e.message
+          : e.message;
+      throw Exception('Error al actualizar capsula: $errorMsg');
     }
   }
 

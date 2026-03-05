@@ -9,7 +9,8 @@ class Emotion {
 
   factory Emotion.fromJson(Map<String, dynamic> json) {
     return Emotion(
-      id: json['id'] as int,
+      // backend returns 'emotionId', local DB uses 'id'
+      id: ((json['emotionId'] ?? json['id']) as num).toInt(),
       name: json['name'] as String,
     );
   }

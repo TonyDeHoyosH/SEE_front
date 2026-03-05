@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../models/capsule.dart';
-import '../../config/theme.dart';
 
 class CapsuleDetailScreen extends StatefulWidget {
   final Capsule capsule;
@@ -54,6 +53,24 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
           });
         }
       });
+
+      // Captura errores asíncronos del plugin (ej. 403 de S3).
+      // PlatformException no se puede capturar con try/catch en play()
+      // porque el error llega desde el canal de eventos nativo, después
+      // de que el Future de play() ya completó.
+      _audioPlayer.eventStream.listen(
+        null,
+        onError: (Object error, StackTrace stackTrace) {
+          if (mounted) {
+            _showAudioError(
+              'No se pudo reproducir el audio.\n\n'
+              'El archivo está almacenado en un servidor privado y '
+              'requiere acceso autorizado. Contacta al administrador.',
+            );
+          }
+        },
+        cancelOnError: false,
+      );
     }
   }
 
@@ -66,24 +83,47 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
   Future<void> _togglePlay() async {
     if (_isPlaying) {
       await _audioPlayer.pause();
-    } else {
-      final path = widget.capsule.audioPath!;
-      // If it's a URL (S3), stream it directly; otherwise play local file
-      if (path.startsWith('http://') || path.startsWith('https://')) {
-        await _audioPlayer.play(UrlSource(path));
-      } else if (File(path).existsSync()) {
+      return;
+    }
+
+    final path = widget.capsule.audioPath!;
+
+    // Archivo local: reproducir directamente
+    if (!path.startsWith('http://') && !path.startsWith('https://')) {
+      if (File(path).existsSync()) {
         await _audioPlayer.play(DeviceFileSource(path));
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Archivo de audio no encontrado'),
-              backgroundColor: Color(0xFFEF4444),
-            ),
-          );
-        }
+        _showAudioError('Archivo de audio no encontrado en el dispositivo.');
       }
+      return;
     }
+
+    // URL remota (S3): los errores 403/red se capturan en el eventStream
+    // listener registrado en initState — no usar try/catch aquí.
+    await _audioPlayer.play(UrlSource(path));
+  }
+
+  void _showAudioError(String message) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.volume_off, color: Color(0xFFEF4444)),
+            SizedBox(width: 8),
+            Text('Audio no disponible'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatDuration(Duration d) {
@@ -136,7 +176,7 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: capsule.type == 'audio'
+                    color: _isAudio
                         ? const Color(0xFFFB923C).withValues(alpha: 0.15)
                         : const Color(0xFF5EEAD4).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
@@ -145,19 +185,19 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        capsule.type == 'audio' ? Icons.mic : Icons.text_fields,
+                        _isAudio ? Icons.mic : Icons.text_fields,
                         size: 16,
-                        color: capsule.type == 'audio'
+                        color: _isAudio
                             ? const Color(0xFFFB923C)
                             : const Color(0xFF5EEAD4),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        capsule.type == 'audio' ? 'AUDIO' : 'TEXTO',
+                        _isAudio ? 'AUDIO' : 'TEXTO',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: capsule.type == 'audio'
+                          color: _isAudio
                               ? const Color(0xFFFB923C)
                               : const Color(0xFF5EEAD4),
                         ),
@@ -166,13 +206,16 @@ class _CapsuleDetailScreenState extends State<CapsuleDetailScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Chip(
-                  label: Text(widget.emotionName),
-                  backgroundColor:
-                      const Color(0xFF5EEAD4).withValues(alpha: 0.2),
-                  labelStyle: const TextStyle(
-                    color: Color(0xFF475569),
-                    fontSize: 12,
+                Flexible(
+                  child: Chip(
+                    label: Text(widget.emotionName,
+                        overflow: TextOverflow.ellipsis),
+                    backgroundColor:
+                        const Color(0xFF5EEAD4).withValues(alpha: 0.2),
+                    labelStyle: const TextStyle(
+                      color: Color(0xFF475569),
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],

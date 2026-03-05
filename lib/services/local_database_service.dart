@@ -221,6 +221,18 @@ class LocalDatabaseService {
     return await db.query('capsules', orderBy: 'created_at DESC');
   }
 
+  /// Returns the row for a single capsule ID (or null if not found locally).
+  static Future<Map<String, dynamic>?> getCapsuleById(String id) async {
+    final db = await database;
+    final rows = await db.query(
+      'capsules',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first;
+  }
+
   static Future<int> updateCapsuleSync(String capsuleId) async {
     final db = await database;
     return await db.update(

@@ -11,6 +11,7 @@ import '../../widgets/app_drawer.dart';
 import '../../widgets/glass_card.dart';
 import 'capsule_detail_screen.dart';
 import 'create_capsule_screen.dart';
+import 'edit_capsule_screen.dart';
 
 class CapsulesScreen extends StatefulWidget {
   const CapsulesScreen({super.key});
@@ -227,7 +228,7 @@ class _CapsuleCardState extends State<_CapsuleCard> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CreateCapsuleScreen(capsule: capsule),
+        builder: (context) => EditCapsuleScreen(capsule: capsule),
       ),
     );
     if (result == true) {
@@ -326,18 +327,26 @@ class _CapsuleCardState extends State<_CapsuleCard> {
               ),
               Switch(
                 value: _isActive,
-                onChanged: (value) {
-                  setState(() {
-                    _isActive = value;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(_isActive
-                          ? 'Cápsula activada'
-                          : 'Cápsula desactivada'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
+                onChanged: (value) async {
+                  setState(() => _isActive = value);
+                  try {
+                    await context
+                        .read<CoreApiService>()
+                        .updateCapsule(widget.capsule.id, isActive: value);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(value
+                              ? 'Cápsula activada'
+                              : 'Cápsula desactivada'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    }
+                  } catch (_) {
+                    // roll back on failure
+                    if (mounted) setState(() => _isActive = !value);
+                  }
                 },
               ),
             ],
