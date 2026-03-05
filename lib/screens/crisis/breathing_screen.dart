@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
+import '../../providers/crisis_provider.dart';
 import 'crisis_capsules_selection_screen.dart';
 
 class BreathingScreen extends StatefulWidget {
@@ -15,6 +17,7 @@ class _BreathingScreenState extends State<BreathingScreen>
   late Animation<double> _animation;
   String _currentPhase = 'Inhala profundamente';
   bool _completed = false;
+  int _cyclesCompleted = 0; // Contador de ciclos completados
 
   @override
   void initState() {
@@ -28,18 +31,15 @@ class _BreathingScreenState extends State<BreathingScreen>
 
     // Animation sequence: grow (0-4s), hold (4-11s), shrink (11-19s)
     _animation = TweenSequence<double>([
-      // Grow: 0.0 to 1.0 over 4 seconds
       TweenSequenceItem(
         tween: Tween<double>(begin: 0.0, end: 1.0)
             .chain(CurveTween(curve: Curves.easeInOut)),
         weight: 4,
       ),
-      // Hold: stay at 1.0 for 7 seconds
       TweenSequenceItem(
         tween: ConstantTween<double>(1.0),
         weight: 7,
       ),
-      // Shrink: 1.0 to 0.0 over 8 seconds
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.0, end: 0.0)
             .chain(CurveTween(curve: Curves.easeInOut)),
@@ -47,11 +47,10 @@ class _BreathingScreenState extends State<BreathingScreen>
       ),
     ]).animate(_controller);
 
-    // Update phase text based on progress
+    // Update phase text
     _controller.addListener(() {
       final progress = _controller.value;
       String newPhase;
-
       if (progress < 4 / 19) {
         newPhase = 'Inhala profundamente';
       } else if (progress < 11 / 19) {
@@ -59,11 +58,8 @@ class _BreathingScreenState extends State<BreathingScreen>
       } else {
         newPhase = 'Exhala lentamente';
       }
-
       if (newPhase != _currentPhase) {
-        setState(() {
-          _currentPhase = newPhase;
-        });
+        setState(() => _currentPhase = newPhase);
       }
     });
 
@@ -71,14 +67,33 @@ class _BreathingScreenState extends State<BreathingScreen>
       if (status == AnimationStatus.completed) {
         setState(() {
           _completed = true;
+          _cyclesCompleted++;
         });
+
+        // Notificar al backend que se completó un ciclo de respiración
+        _reportBreathingCycle();
+
         // Loop the animation
         _controller.repeat();
       }
     });
 
-    // Start the animation immediately
     _controller.forward();
+  }
+
+  /// Informa al backend que se completó un ciclo de respiración.
+  /// Se llama cada vez que el AnimationController completa un ciclo.
+  void _reportBreathingCycle() {
+    final crisisProvider = context.read<CrisisProvider>();
+    final crisisId = crisisProvider.currentCrisis?.id;
+    if (crisisId == null) return;
+
+    // updateCrisisProgress acumula: breathingExerciseCompleted = true
+    // El backend debería incrementar el contador; si no, al menos registra
+    // que hay ejercicios completados.
+    crisisProvider.markBreathingCycleCompleted(crisisId);
+    debugPrint(
+        '[Respiración] Ciclo $_cyclesCompleted completado → PATCH enviado');
   }
 
   Future<void> _navigateToNextStep() async {
@@ -100,7 +115,7 @@ class _BreathingScreenState extends State<BreathingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent, // Global background
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -131,21 +146,26 @@ class _BreathingScreenState extends State<BreathingScreen>
               style: Theme.of(context).textTheme.displaySmall,
               textAlign: TextAlign.center,
             ),
+            if (_cyclesCompleted > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '$_cyclesCompleted ${_cyclesCompleted == 1 ? 'ciclo completado' : 'ciclos completados'}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                ),
+              ),
             const SizedBox(height: 48),
-            // Breathing circle animation
             AnimatedBuilder(
               animation: _animation,
               builder: (context, child) {
-                // Determine color based on current phase
                 Color currentInnerColor;
                 Color currentOuterColor;
 
                 if (_currentPhase == 'Inhala profundamente') {
-                  // Phase 1 (0 to 4s) -> progress goes from 0.0 to 1.0
                   double phaseProgress = _controller.value / (4 / 19);
-                  // Clamp to avoid tiny precision errors at boundaries
                   phaseProgress = phaseProgress.clamp(0.0, 1.0);
-
                   currentInnerColor = Color.lerp(
                     AppTheme.breathEmptyInner,
                     AppTheme.breathFullInner,
@@ -157,11 +177,9 @@ class _BreathingScreenState extends State<BreathingScreen>
                     phaseProgress,
                   )!;
                 } else if (_currentPhase == 'Sostén el aire') {
-                  // Phase 2 (4 to 11s) -> progress goes from 0.0 to 1.0
                   double phaseProgress =
                       (_controller.value - (4 / 19)) / (7 / 19);
                   phaseProgress = phaseProgress.clamp(0.0, 1.0);
-
                   currentInnerColor = Color.lerp(
                     AppTheme.breathFullInner,
                     AppTheme.breathReleaseInner,
@@ -173,11 +191,9 @@ class _BreathingScreenState extends State<BreathingScreen>
                     phaseProgress,
                   )!;
                 } else {
-                  // Phase 3 (11 to 19s) -> progress goes from 0.0 to 1.0
                   double phaseProgress =
                       (_controller.value - (11 / 19)) / (8 / 19);
                   phaseProgress = phaseProgress.clamp(0.0, 1.0);
-
                   currentInnerColor = Color.lerp(
                     AppTheme.breathReleaseInner,
                     AppTheme.breathEmptyInner,
@@ -190,7 +206,6 @@ class _BreathingScreenState extends State<BreathingScreen>
                   )!;
                 }
 
-                // Initial size is 80, expanding up to 260
                 final double currentSize = 80 + (180 * _animation.value);
 
                 return Container(
@@ -229,7 +244,7 @@ class _BreathingScreenState extends State<BreathingScreen>
               ),
               const SizedBox(height: 12),
             ] else ...[
-              const SizedBox(height: 48), // Spacer where button would be
+              const SizedBox(height: 48),
             ],
           ],
         ),

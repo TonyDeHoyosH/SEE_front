@@ -330,9 +330,18 @@ class _CapsuleCardState extends State<_CapsuleCard> {
                 onChanged: (value) async {
                   setState(() => _isActive = value);
                   try {
+                    // 1. Actualizar en el backend
                     await context
                         .read<CoreApiService>()
                         .updateCapsule(widget.capsule.id, isActive: value);
+
+                    // 2. Reflejar en la DB local para que el resumen
+                    //    semanal y el siguiente getCapsules() lo lean bien
+                    await LocalDatabaseService.updateCapsuleActiveState(
+                      widget.capsule.id,
+                      value,
+                    );
+
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

@@ -49,6 +49,7 @@ abstract class CoreApiService {
     String id, {
     bool? breathingExerciseCompleted,
     String? usedCapsuleId,
+    int? finalEvaluationId, // enviado inmediatamente al elegir evaluación
   });
   Future<Crisis> saveCrisisReflection(
     String id, {

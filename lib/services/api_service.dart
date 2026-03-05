@@ -349,13 +349,39 @@ class ApiServiceImpl
           }
         }
 
+        // Construir el mapa de la cápsula para el upsert local
+        final capsuleMap = {
+          'id': capsuleId,
+          'title': json['title'] ?? '',
+          'type': contentType,
+          'content': localContent,
+          'audio_path': localAudio,
+          'is_active': (json['isActive'] as bool? ?? true) ? 1 : 0,
+          'emotion_ids': emotionIds.join(','),
+          'created_at': json['createdAt'] ?? DateTime.now().toIso8601String(),
+        };
+
+        // Upsert en local DB (INSERT IGNORE + UPDATE sin tocar is_active)
+        // Esto garantiza que updateCapsuleActiveState siempre tenga una fila.
+        await LocalDatabaseService.upsertCapsuleFromBackend(capsuleMap);
+
+        // Leer is_active DESDE la DB local (fuente de verdad para el usuario)
+        final freshLocalRow =
+            await LocalDatabaseService.getCapsuleById(capsuleId);
+        final resolvedIsActive = freshLocalRow != null
+            ? (freshLocalRow['is_active'] as int? ?? 1) == 1
+            : (json['isActive'] as bool? ?? true);
+
+        debugPrint(
+            '[getCapsules] $capsuleId → backend=${json["isActive"]} local=$resolvedIsActive');
+
         capsules.add(Capsule.fromJson({
           'id': capsuleId,
           'title': json['title'] ?? '',
           'type': contentType,
           'content': localContent,
           'audio_path': localAudio,
-          'is_active': json['isActive'] ?? true,
+          'is_active': resolvedIsActive,
           'emotion_ids': emotionIds.join(','),
           'created_at': json['createdAt'],
           'is_synced': true,
@@ -665,20 +691,25 @@ class ApiServiceImpl
         breathingCompleted: false,
       );
 
-      // Find a capsule to recommend
+      // Find a capsule to recommend — solo las ACTIVAS
       Capsule? recommendedCapsule;
       try {
         final allCapsules = await getCapsules();
-        if (allCapsules.isNotEmpty && emotionIds.isNotEmpty) {
+        final activeCapsules = allCapsules.where((c) => c.isActive).toList();
+        debugPrint(
+            '[Crisis] Cápsulas disponibles: ${allCapsules.length} total, '
+            '${activeCapsules.length} activas');
+        if (activeCapsules.isNotEmpty && emotionIds.isNotEmpty) {
           for (final eid in emotionIds) {
-            final matches =
-                allCapsules.where((c) => c.emotionIds.contains(eid)).toList();
+            final matches = activeCapsules
+                .where((c) => c.emotionIds.contains(eid))
+                .toList();
             if (matches.isNotEmpty) {
               recommendedCapsule = matches.first;
               break;
             }
           }
-          recommendedCapsule ??= allCapsules.first;
+          recommendedCapsule ??= activeCapsules.first;
         }
       } catch (_) {}
 
@@ -697,6 +728,7 @@ class ApiServiceImpl
     String id, {
     bool? breathingExerciseCompleted,
     String? usedCapsuleId,
+    int? finalEvaluationId,
   }) async {
     try {
       final Map<String, dynamic> body = {};
@@ -704,8 +736,13 @@ class ApiServiceImpl
         body['breathingExerciseCompleted'] = breathingExerciseCompleted;
       }
       if (usedCapsuleId != null) body['usedCapsuleId'] = usedCapsuleId;
+      if (finalEvaluationId != null)
+        body['finalEvaluationId'] = finalEvaluationId;
 
+      debugPrint('[Crisis] PATCH /crisis/$id/progress body: $body');
       await _apiClient.coreDio.patch('/crisis/$id/progress', data: body);
+      debugPrint(
+          '[Crisis] PATCH /progress OK – finalEvaluationId=$finalEvaluationId');
 
       return Crisis(
         id: id,
@@ -715,7 +752,7 @@ class ApiServiceImpl
         breathingCompleted: breathingExerciseCompleted ?? false,
       );
     } on DioException catch (e) {
-      print('Error actualizando progreso de crisis: ${e.response?.data}');
+      debugPrint('[Crisis] PATCH /progress ERROR: ${e.response?.data}');
       throw Exception('Error al actualizar el progreso de la crisis.');
     }
   }

@@ -46,12 +46,22 @@ class CrisisProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    // Convertir el texto de evaluación a ID numérico inmediatamente
+    // IDs coinciden con el catálogo del backend: Mejor=1, Igual=2, Peor=3
+    final evalId = _evaluationToId(evaluation);
+    debugPrint('[Crisis] endCrisis evaluation="$evaluation" evalId=$evalId '
+        'breathing=$breathingCompleted crisisId=${_currentCrisis!.id}');
+
     try {
-      // Step 1: Update progress (breathing + capsule used)
+      // Enviar evaluación + breathing al backend EN EL MISMO request
+      // Esto garantiza que finalEvaluationId se guarda aunque el usuario
+      // luego omita el formulario de reflexión
       await _coreService.updateCrisisProgress(
         _currentCrisis!.id,
         breathingExerciseCompleted: breathingCompleted,
+        finalEvaluationId: evalId,
       );
+      debugPrint('[Crisis] PATCH /progress enviado con evalId=$evalId ✅');
 
       await LocalDatabaseService.insertCrisis({
         'id': _currentCrisis!.id,
@@ -69,6 +79,8 @@ class CrisisProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
+      debugPrint(
+          '[Crisis] PATCH /progress falló: $e — guardando local offline');
       await LocalDatabaseService.insertCrisis({
         'id': _currentCrisis!.id,
         'started_at': _currentCrisis!.startedAt.toIso8601String(),
@@ -88,6 +100,15 @@ class CrisisProvider extends ChangeNotifier {
     }
   }
 
+  /// Convierte el texto de evaluación a su ID numérico del catálogo backend.
+  int? _evaluationToId(String evaluation) {
+    final lower = evaluation.toLowerCase();
+    if (lower.contains('mejor')) return 1;
+    if (lower.contains('igual') || lower.contains('neutral')) return 2;
+    if (lower.contains('peor')) return 3;
+    return null;
+  }
+
   /// Called when the user views and interacts with the recommended capsule.
   /// Notifies the backend which capsule was used during the crisis.
   Future<void> markCapsuleUsed(String crisisId, String capsuleId) async {
@@ -98,6 +119,19 @@ class CrisisProvider extends ChangeNotifier {
       );
     } catch (_) {
       // Non-critical: do not block navigation if this fails
+    }
+  }
+
+  /// Called each time the user completes a full breathing cycle (19s).
+  /// Sends PATCH /progress so the backend can count breathing exercises.
+  Future<void> markBreathingCycleCompleted(String crisisId) async {
+    try {
+      await _coreService.updateCrisisProgress(
+        crisisId,
+        breathingExerciseCompleted: true,
+      );
+    } catch (_) {
+      // Non-critical
     }
   }
 

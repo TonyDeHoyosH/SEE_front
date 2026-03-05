@@ -69,11 +69,13 @@ class CrisisEvaluationScreen extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final evaluation = evaluations[index];
                         return _EvaluationOption(
+                          evaluationId: evaluation.id,
                           title: evaluation.description,
                           icon: _getEvaluationIcon(evaluation.description),
                           color: _getEvaluationColor(evaluation.description),
                           onTap: () => _handleEvaluationSelected(
                             context,
+                            evaluation.id,
                             evaluation.description,
                           ),
                         );
@@ -104,7 +106,8 @@ class CrisisEvaluationScreen extends StatelessWidget {
 
   Future<void> _handleEvaluationSelected(
     BuildContext context,
-    String evaluation,
+    int evaluationId,
+    String evaluationDescription,
   ) async {
     final crisisProvider = context.read<CrisisProvider>();
 
@@ -115,7 +118,8 @@ class CrisisEvaluationScreen extends StatelessWidget {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    await crisisProvider.endCrisis(evaluation, breathingCompleted);
+    await crisisProvider.endCrisis(
+        evaluationId, evaluationDescription, breathingCompleted);
 
     if (!context.mounted) return;
 
@@ -138,7 +142,8 @@ class CrisisEvaluationScreen extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => PostCrisisReflectionScreen(
           crisisId: crisisProvider.currentCrisis?.id ?? '',
-          evaluation: evaluation,
+          evaluationId: evaluationId,
+          evaluation: evaluationDescription,
         ),
       ),
     );
@@ -146,12 +151,14 @@ class CrisisEvaluationScreen extends StatelessWidget {
 }
 
 class _EvaluationOption extends StatelessWidget {
+  final int evaluationId;
   final String title;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
   const _EvaluationOption({
+    required this.evaluationId,
     required this.title,
     required this.icon,
     required this.color,

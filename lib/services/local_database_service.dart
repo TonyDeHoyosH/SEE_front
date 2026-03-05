@@ -206,6 +206,47 @@ class LocalDatabaseService {
     );
   }
 
+  /// Sincroniza una cápsula del backend con la DB local.
+  /// Si no existe aún la inserta; si ya existe actualiza solo los campos del
+  /// backend sin tocar `is_active` (que el usuario controla localmente).
+  static Future<void> upsertCapsuleFromBackend(
+      Map<String, dynamic> capsule) async {
+    final db = await database;
+    final id = capsule['id'] as String;
+
+    // Insertar solo si no existe (preserva is_active local)
+    await db.insert(
+      'capsules',
+      {
+        'id': id,
+        'title': capsule['title'] ?? '',
+        'content': capsule['content'] ?? '',
+        'emotion_ids': capsule['emotion_ids'] ?? '',
+        'is_active': capsule['is_active'] == true ? 1 : 1, // default activo
+        'type': capsule['type'] ?? 'texto',
+        'audio_path': capsule['audio_path'],
+        'is_synced': 1,
+        'created_at': capsule['created_at'] ?? DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore, // no sobreescribir is_active
+    );
+
+    // Actualizar campos del backend SIN tocar is_active
+    await db.update(
+      'capsules',
+      {
+        'title': capsule['title'] ?? '',
+        'content': capsule['content'] ?? '',
+        'emotion_ids': capsule['emotion_ids'] ?? '',
+        'type': capsule['type'] ?? 'texto',
+        'audio_path': capsule['audio_path'],
+        'is_synced': 1,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   static Future<int> updateCapsule(Map<String, dynamic> capsule) async {
     final db = await database;
     return await db.update(
@@ -213,6 +254,17 @@ class LocalDatabaseService {
       capsule,
       where: 'id = ?',
       whereArgs: [capsule['id']],
+    );
+  }
+
+  /// Updates only the is_active flag for a single capsule.
+  static Future<int> updateCapsuleActiveState(String id, bool isActive) async {
+    final db = await database;
+    return await db.update(
+      'capsules',
+      {'is_active': isActive ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 

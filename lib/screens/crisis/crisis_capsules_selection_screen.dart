@@ -34,21 +34,24 @@ class _CrisisCapsulesSelectionScreenState
       final currentCrisis = crisisProvider.currentCrisis;
 
       final allCapsules = await context.read<CoreApiService>().getCapsules();
+      // Nunca mostrar cápsulas inactivas en el flujo de crisis
+      final activeCapsules = allCapsules.where((c) => c.isActive).toList();
 
       if (currentCrisis != null &&
           currentCrisis.emotionIds.isNotEmpty &&
           mounted) {
-        // Filter capsules that contain at least one of the crisis emotions
         setState(() {
-          _capsules = allCapsules.where((c) {
+          _capsules = activeCapsules.where((c) {
             return c.emotionIds
                 .any((id) => currentCrisis.emotionIds.contains(id));
           }).toList();
+          // Si ninguna cápsula activa coincide con las emociones, mostrar todas las activas
+          if (_capsules.isEmpty) _capsules = activeCapsules;
           _isLoading = false;
         });
       } else if (mounted) {
         setState(() {
-          _capsules = allCapsules;
+          _capsules = activeCapsules;
           _isLoading = false;
         });
       }
@@ -158,7 +161,7 @@ class _CrisisCapsulesSelectionScreenState
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(
-                                        capsule.type == 'audio'
+                                        capsule.type.toUpperCase() == 'AUDIO'
                                             ? Icons.mic_rounded
                                             : Icons.text_snippet_rounded,
                                         color: AppTheme.accentPrimary,
@@ -181,7 +184,8 @@ class _CrisisCapsulesSelectionScreenState
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            capsule.type == 'audio'
+                                            capsule.type.toUpperCase() ==
+                                                    'AUDIO'
                                                 ? 'Nota de voz'
                                                 : 'Texto',
                                             style: Theme.of(context)
