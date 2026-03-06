@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user.dart';
 import '../services/base_api_service.dart';
+import '../services/local_database_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthApiService _authService;
@@ -128,6 +129,23 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteAvatar() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updated = await _coreService.updateProfile(clearAvatar: true);
+      _user = _user?.copyWith(avatarUrl: updated.avatarUrl, clearAvatar: true);
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     _user = null;
     await _clearSession();
@@ -140,18 +158,16 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
 
       await _authService.deleteAccount();
-
+    } catch (e) {
+      _errorMessage = e.toString();
+      rethrow;
+    } finally {
       // Limpiar sesión local independientemente del resultado si el servidor falla por alguna razón
       _user = null;
       await _clearSession();
 
       _isLoading = false;
       notifyListeners();
-    } catch (e) {
-      _errorMessage = e.toString();
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
     }
   }
 
@@ -161,6 +177,11 @@ class AuthProvider extends ChangeNotifier {
     await prefs.setString('user_id', user.id);
     await prefs.setString('user_email', user.email);
     await prefs.setString('user_nombre', user.nombrePreferido);
+    if (user.avatarUrl != null) {
+      await prefs.setString('user_avatar', user.avatarUrl!);
+    } else {
+      await prefs.remove('user_avatar');
+    }
   }
 
   Future<void> _clearSession() async {
@@ -169,6 +190,8 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('user_id');
     await prefs.remove('user_email');
     await prefs.remove('user_nombre');
+    await prefs.remove('user_avatar');
+    await LocalDatabaseService.clearAllData();
   }
 
   Future<void> loadSavedUser() async {
@@ -181,6 +204,7 @@ class AuthProvider extends ChangeNotifier {
       final email = prefs.getString('user_email');
       final nombre = prefs.getString('user_nombre');
       final id = prefs.getString('user_id');
+      final avatarUrl = prefs.getString('user_avatar');
 
       if (token != null && email != null && nombre != null && id != null) {
         _user = User(
@@ -188,6 +212,7 @@ class AuthProvider extends ChangeNotifier {
           email: email,
           nombrePreferido: nombre,
           token: token,
+          avatarUrl: avatarUrl,
         );
       }
 

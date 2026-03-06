@@ -66,7 +66,8 @@ abstract class CoreApiService {
   Future<List<Victory>> getMyVictories();
   Future<void> deleteVictoryType(int id);
 
-  Future<User> updateProfile({String? preferredName, File? avatarImage});
+  Future<User> updateProfile(
+      {String? preferredName, File? avatarImage, bool clearAvatar = false});
   Future<void> sendTelemetrySnapshot(String googleAccessToken);
 }
 

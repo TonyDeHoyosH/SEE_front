@@ -5,8 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../config/theme.dart';
 import '../providers/auth_provider.dart';
+import '../providers/victory_provider.dart';
 import '../services/base_api_service.dart';
 import '../screens/auth/login_screen.dart';
 
@@ -53,11 +55,37 @@ class AppDrawer extends StatelessWidget {
                         ),
                         child: ClipOval(
                           child: user?.avatarUrl != null
-                              ? Image.network(
-                                  user!.avatarUrl!,
+                              ? CachedNetworkImage(
+                                  imageUrl:
+                                      '${user!.avatarUrl!}?v=${DateTime.now().millisecondsSinceEpoch}',
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _avatarFallback(user.nombrePreferido),
+                                  placeholder: (context, url) => DecoratedBox(
+                                    decoration: const BoxDecoration(
+                                      gradient: AppTheme.primaryGradient,
+                                    ),
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) {
+                                    debugPrint(
+                                        '==== ERROR LOADING AVATAR ====');
+                                    debugPrint('URL: $url');
+                                    debugPrint('Error: $error');
+                                    debugPrint(
+                                        '==============================');
+                                    return _avatarFallback(
+                                        user.nombrePreferido);
+                                  },
                                 )
                               : DecoratedBox(
                                   decoration: const BoxDecoration(
@@ -194,32 +222,29 @@ class AppDrawer extends StatelessWidget {
                         backgroundColor: AppTheme.errorRed,
                       ),
                       onPressed: () async {
+                        final sm = ScaffoldMessenger.of(context);
+                        final victoryProvider = context.read<VictoryProvider>();
+
                         Navigator.pop(ctx);
                         try {
                           await authProvider.deleteAccount();
-                          if (context.mounted) {
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                  builder: (_) => const LoginScreen()),
-                              (route) => false,
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                    Text('Cuenta eliminada permanentemente.'),
-                                backgroundColor: AppTheme.errorRed,
-                              ),
-                            );
-                          }
+                          sm.showSnackBar(
+                            const SnackBar(
+                              content:
+                                  Text('Cuenta eliminada permanentemente.'),
+                              backgroundColor: AppTheme.errorRed,
+                            ),
+                          );
                         } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error al eliminar: $e'),
-                                backgroundColor: AppTheme.errorRed,
-                              ),
-                            );
-                          }
+                          sm.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Intentamos eliminarla pero el servidor falló: $e. Cerrando sesión local...'),
+                              backgroundColor: AppTheme.errorRed,
+                            ),
+                          );
+                        } finally {
+                          victoryProvider.clear();
                         }
                       },
                       child: const Text('Eliminar'),
@@ -242,14 +267,11 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
             onTap: () async {
+              final victoryProvider = context.read<VictoryProvider>();
               Navigator.pop(context);
+
+              victoryProvider.clear();
               await authProvider.logout();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
             },
           ),
           const SizedBox(height: 8),
@@ -307,11 +329,49 @@ class AppDrawer extends StatelessWidget {
                 await _pickAndUploadAvatar(context, authProvider);
               },
             ),
+            if (authProvider.user?.avatarUrl != null) ...[
+              const SizedBox(height: 8),
+              ListTile(
+                leading:
+                    const Icon(Icons.delete_outline, color: AppTheme.errorRed),
+                title: const Text(
+                  'Eliminar foto',
+                  style: TextStyle(
+                      color: AppTheme.errorRed, fontWeight: FontWeight.w600),
+                ),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _deleteAvatar(context, authProvider);
+                },
+              ),
+            ],
             const SizedBox(height: 8),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _deleteAvatar(
+      BuildContext context, AuthProvider authProvider) async {
+    await authProvider.deleteAvatar();
+
+    if (!context.mounted) return;
+    if (authProvider.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al eliminar foto: ${authProvider.errorMessage}'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Foto eliminada'),
+          backgroundColor: Color(0xFF22C55E),
+        ),
+      );
+    }
   }
 
   Future<void> _pickAndUploadAvatar(

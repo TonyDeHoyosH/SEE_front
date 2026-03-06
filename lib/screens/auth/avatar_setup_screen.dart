@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
@@ -143,11 +144,35 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
                             : null,
                       ),
                       child: _selectedImage == null
-                          ? const Icon(
-                              Icons.person_rounded,
-                              size: 70,
-                              color: Colors.white,
-                            )
+                          ? (context.watch<AuthProvider>().user?.avatarUrl !=
+                                  null
+                              ? ClipOval(
+                                  child: CachedNetworkImage(
+                                    imageUrl:
+                                        '${context.watch<AuthProvider>().user!.avatarUrl!}?v=${DateTime.now().millisecondsSinceEpoch}',
+                                    fit: BoxFit.cover,
+                                    width: 140,
+                                    height: 140,
+                                    placeholder: (context, url) => const Center(
+                                      child: CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        const Icon(
+                                      Icons.person_rounded,
+                                      size: 70,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.person_rounded,
+                                  size: 70,
+                                  color: Colors.white,
+                                ))
                           : null,
                     ),
                     Container(

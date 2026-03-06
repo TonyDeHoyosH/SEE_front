@@ -138,6 +138,19 @@ class LocalDatabaseService {
     );
   }
 
+  // --- Utility methods ---
+
+  static Future<void> clearAllData() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('crisis');
+      await txn.delete('capsules');
+      await txn.delete('victory_logs');
+      await txn.delete('victory_definitions');
+      await _seedDefaultVictories(txn as Database);
+    });
+  }
+
   // --- Crisis methods ---
 
   static Future<int> insertCrisis(Map<String, dynamic> crisis) async {
@@ -400,6 +413,38 @@ class LocalDatabaseService {
   }
 
   // --- Dashboard metrics ---
+
+  static Future<void> syncVictoriesFromBackend(
+      List<dynamic> backendVictories) async {
+    final db = await database;
+
+    // Get existing definitions mapped by name
+    final defs = await db.query('victory_definitions');
+    final Map<String, int> nameToId = {};
+    for (var d in defs) {
+      nameToId[d['name'] as String] = d['id'] as int;
+    }
+
+    for (var v in backendVictories) {
+      int defId;
+      final String vName = v.name;
+      final DateTime vDate = v.occurredAt;
+
+      if (nameToId.containsKey(vName)) {
+        defId = nameToId[vName]!;
+      } else {
+        defId = await db.insert('victory_definitions', {'name': vName});
+        nameToId[vName] = defId;
+      }
+
+      final dateStr = vDate.toIso8601String().substring(0, 10);
+      await db.insert(
+        'victory_logs',
+        {'definition_id': defId, 'logged_date': dateStr},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+  }
 
   static Future<int> countActiveCapsules() async {
     final db = await database;

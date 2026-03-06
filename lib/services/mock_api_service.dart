@@ -390,7 +390,10 @@ class MockApiService
   }
 
   @override
-  Future<User> updateProfile({String? preferredName, File? avatarImage}) async {
+  Future<User> updateProfile(
+      {String? preferredName,
+      File? avatarImage,
+      bool clearAvatar = false}) async {
     await Future.delayed(const Duration(milliseconds: 800));
     final prefs = await SharedPreferences.getInstance();
     final currentName = prefs.getString('user_nombre') ?? 'Usuario';
@@ -399,9 +402,11 @@ class MockApiService
       email: prefs.getString('user_email') ?? 'mock@see.app',
       nombrePreferido: preferredName ?? currentName,
       token: prefs.getString('auth_token') ?? 'mock.token',
-      avatarUrl: avatarImage != null
-          ? 'https://picsum.photos/200?mock=${DateTime.now().millisecondsSinceEpoch}'
-          : null,
+      avatarUrl: clearAvatar
+          ? null
+          : (avatarImage != null
+              ? 'https://picsum.photos/200?mock=${DateTime.now().millisecondsSinceEpoch}'
+              : null),
     );
   }
 

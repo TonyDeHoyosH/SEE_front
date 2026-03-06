@@ -62,6 +62,10 @@ class ApiServiceImpl
         nombrePreferido:
             userData['name'] ?? userData['preferredName'] ?? 'Usuario',
         token: token,
+        avatarUrl: userData['avatarUrl'] ??
+            (userData['avatarKey'] != null
+                ? 'https://awos-see.s3.us-east-1.amazonaws.com/${userData['avatarKey']}'
+                : null),
       );
 
       // Save to local storage automatically
@@ -107,6 +111,10 @@ class ApiServiceImpl
         email: email,
         nombrePreferido: nombrePreferido,
         token: token,
+        avatarUrl: data['avatarUrl'] ??
+            (data['avatarKey'] != null
+                ? 'https://awos-see.s3.us-east-1.amazonaws.com/${data['avatarKey']}'
+                : null),
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -150,6 +158,10 @@ class ApiServiceImpl
         email: userResponse['email'],
         nombrePreferido: userResponse['name'],
         token: token,
+        avatarUrl: userResponse['avatarUrl'] ??
+            (userResponse['avatarKey'] != null
+                ? 'https://awos-see.s3.us-east-1.amazonaws.com/${userResponse['avatarKey']}'
+                : null),
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -834,8 +846,24 @@ class ApiServiceImpl
 
   @override
   Future<List<Victory>> getMyVictories() async {
-    // Backend missing simple GET /victories right now.
-    return [];
+    try {
+      final response = await _apiClient.coreDio.get('/victories');
+      final List<dynamic> rawList = response.data;
+
+      return rawList.map((data) {
+        return Victory(
+          id: data['victoryId']?.toString() ?? 'temp',
+          name: data['victoryType'] != null
+              ? data['victoryType']['name']
+              : 'Victoria',
+          occurredAt:
+              DateTime.tryParse(data['occurredAt'] ?? '') ?? DateTime.now(),
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('Error obteniendo victorias: $e');
+      return [];
+    }
   }
 
   @override
@@ -852,7 +880,10 @@ class ApiServiceImpl
   // PROFILE & REPORTS
   // ---------------------------------------------------------------------------
   @override
-  Future<User> updateProfile({String? preferredName, File? avatarImage}) async {
+  Future<User> updateProfile(
+      {String? preferredName,
+      File? avatarImage,
+      bool clearAvatar = false}) async {
     try {
       String? avatarKey;
 
@@ -873,7 +904,9 @@ class ApiServiceImpl
           uploadUrl,
           data: fileBytes,
           options: Options(
-            headers: {Headers.contentTypeHeader: 'image/jpeg'},
+            headers: {
+              Headers.contentTypeHeader: 'image/jpeg',
+            },
           ),
         );
       }
@@ -882,6 +915,9 @@ class ApiServiceImpl
       final Map<String, dynamic> body = {};
       if (preferredName != null) body['preferredName'] = preferredName;
       if (avatarKey != null) body['avatarKey'] = avatarKey;
+      if (clearAvatar)
+        body['avatarKey'] =
+            ''; // Sending empty string to force Prisma to clear it
 
       final response =
           await _apiClient.coreDio.put('/users/profile', data: body);
@@ -896,15 +932,43 @@ class ApiServiceImpl
 
       await prefs.setString('user_nombre', updatedName);
 
+      final String? finalAvatarKey =
+          clearAvatar ? null : (data['avatarKey'] ?? avatarKey);
+      final updatedAvatarUrl = clearAvatar
+          ? null
+          : (data['avatarUrl'] ??
+              (finalAvatarKey != null
+                  ? 'https://awos-see.s3.us-east-1.amazonaws.com/$finalAvatarKey'
+                  : null));
+
+      if (clearAvatar) {
+        await prefs.remove('user_avatar');
+      } else if (updatedAvatarUrl != null) {
+        await prefs.setString('user_avatar', updatedAvatarUrl);
+      }
+
       return User(
         id: data['id'] ?? prefs.getString('user_id') ?? '',
         email: data['email'] ?? prefs.getString('user_email') ?? '',
         nombrePreferido: updatedName,
         token: prefs.getString('auth_token') ?? '',
+        avatarUrl: clearAvatar
+            ? null
+            : (updatedAvatarUrl ?? prefs.getString('user_avatar')),
       );
     } on DioException catch (e) {
-      final errorMsg = e.response?.data?['error'] ?? e.message;
+      String errorMsg = e.message ?? 'Error desconocido';
+      if (e.response?.data != null) {
+        if (e.response!.data is Map) {
+          errorMsg = e.response!.data['error']?.toString() ??
+              e.response!.data.toString();
+        } else {
+          errorMsg = e.response!.data.toString();
+        }
+      }
       throw Exception('Error al actualizar perfil: $errorMsg');
+    } catch (e) {
+      throw Exception('Excepción local: $e');
     }
   }
 

@@ -31,9 +31,25 @@ class VictoryProvider extends ChangeNotifier {
   List<VictoryLog> get history => _history;
   bool get isLoading => _isLoading;
 
+  void clear() {
+    _definitions = [];
+    _todayChecked = {};
+    _history = [];
+    notifyListeners();
+  }
+
   Future<void> loadAll() async {
     _isLoading = true;
     notifyListeners();
+
+    try {
+      final backendVictories = await apiService.getMyVictories();
+      if (backendVictories.isNotEmpty) {
+        await LocalDatabaseService.syncVictoriesFromBackend(backendVictories);
+      }
+    } catch (e) {
+      debugPrint('Error syncing victories from backend: $e');
+    }
 
     final defsRaw = await LocalDatabaseService.getAllVictoryDefinitions();
     _definitions = defsRaw
