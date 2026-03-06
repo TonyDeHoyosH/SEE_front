@@ -900,24 +900,37 @@ class ApiServiceImpl
         avatarKey = presignRes.data['key'];
 
         final fileBytes = await avatarImage.readAsBytes();
-        await Dio().put(
-          uploadUrl,
-          data: fileBytes,
-          options: Options(
-            headers: {
-              Headers.contentTypeHeader: 'image/jpeg',
-            },
-          ),
-        );
+
+        try {
+          await Dio().put(
+            uploadUrl,
+            data: fileBytes,
+            options: Options(
+              headers: {
+                Headers.contentTypeHeader: 'image/jpeg',
+              },
+            ),
+          );
+        } on DioException catch (s3Error) {
+          final rawBody = s3Error.response?.data?.toString() ?? '';
+          if (rawBody.contains('ExpiredToken') || rawBody.contains('expired')) {
+            throw Exception(
+              'S3_EXPIRED_TOKEN: Las credenciales del servidor para subir '
+              'archivos han expirado. Por favor avisa al administrador.',
+            );
+          }
+          throw Exception('S3_UPLOAD_ERROR: No se pudo subir el avatar.');
+        }
       }
 
       // 2. Call PUT /users/profile with updated data
       final Map<String, dynamic> body = {};
       if (preferredName != null) body['preferredName'] = preferredName;
       if (avatarKey != null) body['avatarKey'] = avatarKey;
-      if (clearAvatar)
+      if (clearAvatar) {
         body['avatarKey'] =
             ''; // Sending empty string to force Prisma to clear it
+      }
 
       final response =
           await _apiClient.coreDio.put('/users/profile', data: body);
