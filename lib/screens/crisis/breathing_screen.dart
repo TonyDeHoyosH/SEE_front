@@ -138,115 +138,123 @@ class _BreathingScreenState extends State<BreathingScreen>
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Respira conmigo',
-              style: Theme.of(context).textTheme.displaySmall,
-              textAlign: TextAlign.center,
-            ),
-            if (_cyclesCompleted > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '$_cyclesCompleted ${_cyclesCompleted == 1 ? 'ciclo completado' : 'ciclos completados'}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Respira conmigo',
+                style: Theme.of(context).textTheme.displaySmall,
+                textAlign: TextAlign.center,
+              ),
+              if (_cyclesCompleted > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '$_cyclesCompleted ${_cyclesCompleted == 1 ? 'ciclo completado' : 'ciclos completados'}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                  ),
+                ),
+              SizedBox(
+                height: 260,
+                width: 260,
+                child: Center(
+                  child: AnimatedBuilder(
+                    animation: _animation,
+                    builder: (context, child) {
+                      Color currentInnerColor;
+                      Color currentOuterColor;
+
+                      if (_currentPhase == 'Inhala profundamente') {
+                        double phaseProgress = _controller.value / (4 / 19);
+                        phaseProgress = phaseProgress.clamp(0.0, 1.0);
+                        currentInnerColor = Color.lerp(
+                          AppTheme.breathEmptyInner,
+                          AppTheme.breathFullInner,
+                          phaseProgress,
+                        )!;
+                        currentOuterColor = Color.lerp(
+                          AppTheme.breathEmptyOuter,
+                          AppTheme.breathFullOuter,
+                          phaseProgress,
+                        )!;
+                      } else if (_currentPhase == 'Sostén el aire') {
+                        double phaseProgress =
+                            (_controller.value - (4 / 19)) / (7 / 19);
+                        phaseProgress = phaseProgress.clamp(0.0, 1.0);
+                        currentInnerColor = Color.lerp(
+                          AppTheme.breathFullInner,
+                          AppTheme.breathReleaseInner,
+                          phaseProgress,
+                        )!;
+                        currentOuterColor = Color.lerp(
+                          AppTheme.breathFullOuter,
+                          AppTheme.breathReleaseOuter,
+                          phaseProgress,
+                        )!;
+                      } else {
+                        double phaseProgress =
+                            (_controller.value - (11 / 19)) / (8 / 19);
+                        phaseProgress = phaseProgress.clamp(0.0, 1.0);
+                        currentInnerColor = Color.lerp(
+                          AppTheme.breathReleaseInner,
+                          AppTheme.breathEmptyInner,
+                          phaseProgress,
+                        )!;
+                        currentOuterColor = Color.lerp(
+                          AppTheme.breathReleaseOuter,
+                          AppTheme.breathEmptyOuter,
+                          phaseProgress,
+                        )!;
+                      }
+
+                      final double currentSize = 80 + (180 * _animation.value);
+
+                      return Container(
+                        width: currentSize,
+                        height: currentSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: currentInnerColor.withValues(alpha: 0.5),
+                          border: Border.all(
+                            color: currentOuterColor,
+                            width: 4,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
-            const SizedBox(height: 48),
-            AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                Color currentInnerColor;
-                Color currentOuterColor;
-
-                if (_currentPhase == 'Inhala profundamente') {
-                  double phaseProgress = _controller.value / (4 / 19);
-                  phaseProgress = phaseProgress.clamp(0.0, 1.0);
-                  currentInnerColor = Color.lerp(
-                    AppTheme.breathEmptyInner,
-                    AppTheme.breathFullInner,
-                    phaseProgress,
-                  )!;
-                  currentOuterColor = Color.lerp(
-                    AppTheme.breathEmptyOuter,
-                    AppTheme.breathFullOuter,
-                    phaseProgress,
-                  )!;
-                } else if (_currentPhase == 'Sostén el aire') {
-                  double phaseProgress =
-                      (_controller.value - (4 / 19)) / (7 / 19);
-                  phaseProgress = phaseProgress.clamp(0.0, 1.0);
-                  currentInnerColor = Color.lerp(
-                    AppTheme.breathFullInner,
-                    AppTheme.breathReleaseInner,
-                    phaseProgress,
-                  )!;
-                  currentOuterColor = Color.lerp(
-                    AppTheme.breathFullOuter,
-                    AppTheme.breathReleaseOuter,
-                    phaseProgress,
-                  )!;
-                } else {
-                  double phaseProgress =
-                      (_controller.value - (11 / 19)) / (8 / 19);
-                  phaseProgress = phaseProgress.clamp(0.0, 1.0);
-                  currentInnerColor = Color.lerp(
-                    AppTheme.breathReleaseInner,
-                    AppTheme.breathEmptyInner,
-                    phaseProgress,
-                  )!;
-                  currentOuterColor = Color.lerp(
-                    AppTheme.breathReleaseOuter,
-                    AppTheme.breathEmptyOuter,
-                    phaseProgress,
-                  )!;
-                }
-
-                final double currentSize = 80 + (180 * _animation.value);
-
-                return Container(
-                  width: currentSize,
-                  height: currentSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: currentInnerColor.withValues(alpha: 0.5),
-                    border: Border.all(
-                      color: currentOuterColor,
-                      width: 4,
+              const SizedBox(height: 48),
+              Text(
+                _currentPhase,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: const Color(0xFF475569),
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 64),
+              if (_completed) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _navigateToNextStep,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Text('Ya estoy más tranquilo'),
                     ),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 48),
-            Text(
-              _currentPhase,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: const Color(0xFF475569),
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 64),
-            if (_completed) ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _navigateToNextStep,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4.0),
-                    child: Text('Ya estoy más tranquilo'),
-                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-            ] else ...[
-              const SizedBox(height: 48),
+                const SizedBox(height: 12),
+              ] else ...[
+                const SizedBox(height: 48),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

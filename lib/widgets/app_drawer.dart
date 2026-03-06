@@ -224,6 +224,8 @@ class AppDrawer extends StatelessWidget {
                       onPressed: () async {
                         final sm = ScaffoldMessenger.of(context);
                         final victoryProvider = context.read<VictoryProvider>();
+                        final navigator =
+                            Navigator.of(context, rootNavigator: true);
 
                         Navigator.pop(ctx);
                         try {
@@ -245,6 +247,11 @@ class AppDrawer extends StatelessWidget {
                           );
                         } finally {
                           victoryProvider.clear();
+                          navigator.pushAndRemoveUntil(
+                            MaterialPageRoute(
+                                builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
                         }
                       },
                       child: const Text('Eliminar'),
@@ -268,10 +275,16 @@ class AppDrawer extends StatelessWidget {
             ),
             onTap: () async {
               final victoryProvider = context.read<VictoryProvider>();
+              final navigator = Navigator.of(context, rootNavigator: true);
               Navigator.pop(context);
 
               victoryProvider.clear();
               await authProvider.logout();
+
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
             },
           ),
           const SizedBox(height: 8),
