@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/crisis_provider.dart';
+import '../../widgets/crisis_step_indicator.dart';
 import '../../widgets/glass_card.dart';
 import '../../config/theme.dart';
 
@@ -125,7 +126,7 @@ class _PostCrisisReflectionScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text('Reflexión'),
+        bottom: const CrisisStepIndicator(currentStep: 5),
       ),
       body: Form(
         key: _formKey,

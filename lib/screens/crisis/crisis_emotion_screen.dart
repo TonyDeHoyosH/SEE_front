@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/crisis_provider.dart';
 import '../../providers/data_provider.dart';
+import '../../widgets/crisis_step_indicator.dart';
 import '../../widgets/glass_card.dart';
 import '../../config/theme.dart';
 import 'breathing_screen.dart';
@@ -57,21 +58,8 @@ class _CrisisEmotionScreenState extends State<CrisisEmotionScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('¿Qué sientes?'),
-              Text(
-                'Paso 1 de 3',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.normal,
-                  color: AppTheme.textSecondary.withValues(alpha: 0.8),
-                ),
-              ),
-            ],
-          ),
+          automaticallyImplyLeading: false,
+          bottom: const CrisisStepIndicator(currentStep: 1),
         ),
         body: emotions.isEmpty
             ? const Center(child: CircularProgressIndicator())

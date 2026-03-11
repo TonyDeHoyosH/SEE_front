@@ -5,6 +5,7 @@ import '../../models/capsule.dart';
 import '../../providers/crisis_provider.dart';
 import '../../providers/data_provider.dart';
 import '../../services/base_api_service.dart';
+import '../../widgets/crisis_step_indicator.dart';
 import '../../widgets/glass_card.dart';
 import '../capsules/capsule_detail_screen.dart';
 import 'crisis_evaluation_screen.dart';
@@ -79,21 +80,7 @@ class _CrisisCapsulesSelectionScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Cápsulas recomendadas'),
-            Text(
-              'Paso 3 de 4',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-                color: AppTheme.textSecondary.withValues(alpha: 0.8),
-              ),
-            ),
-          ],
-        ),
+        bottom: const CrisisStepIndicator(currentStep: 3),
       ),
       body: SafeArea(
         child: Padding(

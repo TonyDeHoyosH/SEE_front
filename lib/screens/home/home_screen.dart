@@ -77,7 +77,6 @@ class _DashboardView extends StatefulWidget {
 
 class _DashboardViewState extends State<_DashboardView> {
   late Future<Map<String, int>> _metricsFuture;
-  static const _onboardingKey = 'onboarding_seen_v1';
   OverlayEntry? _overlayEntry;
 
   @override
@@ -99,15 +98,18 @@ class _DashboardViewState extends State<_DashboardView> {
 
   Future<void> _maybeShowOnboarding(int victories, int capsules) async {
     if (victories > 0 || capsules > 0) return;
+    // Llave por usuario: cada cuenta tiene su propio flag
+    final userId = context.read<AuthProvider>().user?.id ?? 'guest';
+    final userKey = 'onboarding_seen_v1_$userId';
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_onboardingKey) == true) return;
+    if (prefs.getBool(userKey) == true) return;
     if (!mounted) return;
     _overlayEntry = OverlayEntry(
       builder: (_) => OnboardingOverlay(
         onDone: () async {
           _removeOnboarding();
           final p = await SharedPreferences.getInstance();
-          await p.setBool(_onboardingKey, true);
+          await p.setBool(userKey, true);
         },
       ),
     );
