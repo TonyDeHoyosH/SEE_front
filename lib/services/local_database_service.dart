@@ -147,7 +147,7 @@ class LocalDatabaseService {
       await txn.delete('capsules');
       await txn.delete('victory_logs');
       await txn.delete('victory_definitions');
-      await _seedDefaultVictories(txn as Database);
+      await _seedDefaultVictories(txn);
     });
   }
 
@@ -336,7 +336,7 @@ class LocalDatabaseService {
     'Mandar un mensaje lindo',
   ];
 
-  static Future<void> _seedDefaultVictories(Database db) async {
+  static Future<void> _seedDefaultVictories(DatabaseExecutor db) async {
     for (final name in _defaultVictories) {
       await db.insert('victory_definitions', {'name': name});
     }

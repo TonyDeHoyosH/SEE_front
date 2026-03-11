@@ -58,8 +58,9 @@ class _EditCapsuleScreenState extends State<EditCapsuleScreen> {
 
     // Audio playback listeners
     _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted)
+      if (mounted) {
         setState(() => _isPlayingPreview = state == PlayerState.playing);
+      }
     });
     _audioPlayer.onDurationChanged.listen((d) {
       if (mounted) setState(() => _playbackDuration = d);
@@ -68,11 +69,12 @@ class _EditCapsuleScreenState extends State<EditCapsuleScreen> {
       if (mounted) setState(() => _playbackPosition = p);
     });
     _audioPlayer.onPlayerComplete.listen((_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isPlayingPreview = false;
           _playbackPosition = Duration.zero;
         });
+      }
     });
   }
 

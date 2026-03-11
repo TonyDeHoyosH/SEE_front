@@ -78,9 +78,9 @@ class AuthProvider extends ChangeNotifier {
         'https://www.googleapis.com/auth/bigquery',
       ]);
 
-      final String? accessToken = authDetails.accessToken;
+      final String accessToken = authDetails.accessToken;
 
-      if (accessToken == null || accessToken.isEmpty) {
+      if (accessToken.isEmpty) {
         throw Exception('No se pudo obtener el token de acceso de Google.');
       }
 

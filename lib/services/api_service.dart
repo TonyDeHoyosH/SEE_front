@@ -333,7 +333,7 @@ class ApiServiceImpl
           audioUrl =
               (s3Key.startsWith('http://') || s3Key.startsWith('https://'))
                   ? s3Key
-                  : 'https://awos-see.s3.us-east-1.amazonaws.com/' + s3Key;
+                  : 'https://awos-see.s3.us-east-1.amazonaws.com/$s3Key';
         }
 
         final backendContent = json['contentText']?.toString();
@@ -636,7 +636,7 @@ class ApiServiceImpl
 
       final s3Key = json['s3Key']?.toString();
       final audioUrl = (s3Key != null && s3Key.isNotEmpty)
-          ? 'https://awos-see.s3.us-east-1.amazonaws.com/' + s3Key
+          ? 'https://awos-see.s3.us-east-1.amazonaws.com/$s3Key'
           : null;
 
       // Si el backend no devuelve contentText en la respuesta del PATCH,
@@ -748,8 +748,9 @@ class ApiServiceImpl
         body['breathingExerciseCompleted'] = breathingExerciseCompleted;
       }
       if (usedCapsuleId != null) body['usedCapsuleId'] = usedCapsuleId;
-      if (finalEvaluationId != null)
+      if (finalEvaluationId != null) {
         body['finalEvaluationId'] = finalEvaluationId;
+      }
 
       debugPrint('[Crisis] PATCH /crisis/$id/progress body: $body');
       await _apiClient.coreDio.patch('/crisis/$id/progress', data: body);

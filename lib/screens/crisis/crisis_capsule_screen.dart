@@ -135,9 +135,9 @@ class _CrisisCapsuleScreenState extends State<CrisisCapsuleScreen> {
                   if (isAudio && capsule.audioPath != null)
                     _buildAudioPlayer(capsule.audioPath!)
                   else if (isAudio && capsule.audioPath == null)
-                    GlassCard(
-                      padding: const EdgeInsets.all(20),
-                      child: const Row(
+                    const GlassCard(
+                      padding: EdgeInsets.all(20),
+                      child: Row(
                         children: [
                           Icon(Icons.volume_off, color: Color(0xFF94A3B8)),
                           SizedBox(width: 8),
