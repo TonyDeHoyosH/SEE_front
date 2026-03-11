@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/base_api_service.dart';
@@ -8,6 +9,7 @@ import '../../services/local_database_service.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/floating_navbar.dart';
 import '../../widgets/glass_card.dart';
+import '../../widgets/onboarding_overlay.dart';
 import '../capsules/capsules_screen.dart';
 import '../victories/victories_screen.dart';
 import '../crisis/crisis_emotion_screen.dart';
@@ -75,11 +77,41 @@ class _DashboardView extends StatefulWidget {
 
 class _DashboardViewState extends State<_DashboardView> {
   late Future<Map<String, int>> _metricsFuture;
+  static const _onboardingKey = 'onboarding_seen_v1';
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
     super.initState();
     _metricsFuture = _loadMetrics();
+  }
+
+  @override
+  void dispose() {
+    _removeOnboarding();
+    super.dispose();
+  }
+
+  void _removeOnboarding() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  Future<void> _maybeShowOnboarding(int victories, int capsules) async {
+    if (victories > 0 || capsules > 0) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_onboardingKey) == true) return;
+    if (!mounted) return;
+    _overlayEntry = OverlayEntry(
+      builder: (_) => OnboardingOverlay(
+        onDone: () async {
+          _removeOnboarding();
+          final p = await SharedPreferences.getInstance();
+          await p.setBool(_onboardingKey, true);
+        },
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
   }
 
   Future<Map<String, int>> _loadMetrics() async {
@@ -91,10 +123,15 @@ class _DashboardViewState extends State<_DashboardView> {
     } catch (_) {
       capsuleCount = await LocalDatabaseService.countActiveCapsules();
     }
-    return {
+    final result = {
       'capsules': capsuleCount,
       'victories': victories,
     };
+    // Show onboarding after first paint
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowOnboarding(victories, capsuleCount);
+    });
+    return result;
   }
 
   @override
