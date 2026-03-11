@@ -112,15 +112,9 @@ class _DashboardViewState extends State<_DashboardView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'SEE',
-                    style: AppTheme.lightTheme.textTheme.headlineMedium,
-                  ),
-                  const AppDrawerButton(),
-                ],
+              Align(
+                alignment: Alignment.centerRight,
+                child: const AppDrawerButton(),
               ),
               const SizedBox(height: 28), // 28dp gap
 
