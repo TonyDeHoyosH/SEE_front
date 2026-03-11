@@ -214,14 +214,12 @@ class _LoginScreenState extends State<LoginScreen>
                                     }
                                   });
                                 },
-                          icon: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Image.network(
-                              'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png',
+                          icon: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Image.asset(
+                              'assets/images/google_logo.png',
+                              width: 20,
                               height: 20,
                             ),
                           ),
