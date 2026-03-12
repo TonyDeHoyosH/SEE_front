@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import 'avatar_setup_screen.dart';
+import '../../widgets/privacy_policy_dialog.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -29,6 +30,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     _passwordController.addListener(_updatePasswordStrength);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPrivacyPolicy();
+    });
+  }
+
+  Future<void> _checkPrivacyPolicy() async {
+    final hasAccepted = await PrivacyPolicyDialog.hasAccepted();
+    if (!hasAccepted && mounted) {
+      await PrivacyPolicyDialog.show(
+        context,
+        isDismissible: true,
+        onRejected: () {
+          if (mounted) {
+            Navigator.pop(context); // Resgresar al login si rechaza
+          }
+        },
+      );
+    }
   }
 
   void _updatePasswordStrength() {

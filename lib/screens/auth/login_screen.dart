@@ -4,6 +4,7 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
+import '../../widgets/privacy_policy_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,6 +34,20 @@ class _LoginScreenState extends State<LoginScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPrivacyPolicy();
+    });
+  }
+
+  Future<void> _checkPrivacyPolicy() async {
+    final hasAccepted = await PrivacyPolicyDialog.hasAccepted();
+    if (!hasAccepted && mounted) {
+      await PrivacyPolicyDialog.show(
+        context,
+        isDismissible: true,
+      );
+    }
   }
 
   @override
