@@ -5,11 +5,14 @@ import '../config/theme.dart';
 /// delgados y planos, sin texto ni bordes.
 class CrisisStepIndicator extends StatelessWidget
     implements PreferredSizeWidget {
-  final int currentStep; // 1-indexed, 1 to 5
+  final int currentStep; // 1-indexed
+  final int totalSteps;
 
-  static const int _totalSteps = 5;
-
-  const CrisisStepIndicator({super.key, required this.currentStep});
+  const CrisisStepIndicator({
+    super.key,
+    required this.currentStep,
+    this.totalSteps = 5,
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(20);
@@ -19,7 +22,7 @@ class CrisisStepIndicator extends StatelessWidget
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Row(
-        children: List.generate(_totalSteps, (i) {
+        children: List.generate(totalSteps, (i) {
           final step = i + 1;
           final isDone = step < currentStep;
           final isActive = step == currentStep;
@@ -35,7 +38,7 @@ class CrisisStepIndicator extends StatelessWidget
 
           return Expanded(
             child: Container(
-              margin: EdgeInsets.only(right: i < _totalSteps - 1 ? 4 : 0),
+              margin: EdgeInsets.only(right: i < totalSteps - 1 ? 4 : 0),
               height: 4,
               decoration: BoxDecoration(
                 color: color,

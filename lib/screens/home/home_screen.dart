@@ -13,7 +13,8 @@ import '../../widgets/onboarding_overlay.dart';
 import '../capsules/capsules_screen.dart';
 import '../victories/victories_screen.dart';
 import '../crisis/crisis_emotion_screen.dart';
-import '../../utils/report_utils.dart';
+import '../reports/reports_screen.dart';
+import '../reflections/reflections_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +38,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       const VictoriesScreen(),
       const CapsulesScreen(),
+      const ReportsScreen(),
+      const ReflectionsScreen(),
     ];
 
     return Scaffold(
@@ -51,13 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
           FloatingNavbar(
             currentIndex: _selectedIndex,
             onTap: (index) {
-              if (index == 3) {
-                ReportUtils.openClinicalReport(context);
-              } else {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              }
+              setState(() {
+                _selectedIndex = index;
+              });
             },
           ),
         ],

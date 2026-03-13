@@ -72,5 +72,5 @@ abstract class CoreApiService {
 }
 
 abstract class ReportsApiService {
-  Future<String> getClinicalReportUrl();
+  Future<String> getReportUrl();
 }

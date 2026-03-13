@@ -125,7 +125,8 @@ Al utilizar esta aplicación, podríamos solicitar o almacenar información pers
 Los datos recabados serán utilizados exclusiva y estrictamente para:
 - Brindarle recomendaciones y contenido de apoyo durante situaciones de crisis emocionales.
 - Permitirle registrar y consultar su progreso emocional a través de victorias y reflexiones.
-- Generar reportes clínicos en formato PDF para su uso personal y facilitar el seguimiento por parte de profesionales de la salud, solo si usted así lo decide y lo comparte.
+- Generar reportes en formato PDF para su uso personal y facilitar el seguimiento por parte de profesionales de la salud, solo si usted así lo decide y lo comparte.
+- Almacenar de forma segura sus grabaciones de voz (Cápsulas de Audio) en nuestra base de datos remota para que estén sincronizadas y respaldadas. Estas grabaciones son estrictamente personales; nadie más tiene acceso a ellas y SEE no analizará ni compartirá su contenido.
 
 3. Privacidad y Seguridad
 Garantizamos que su información está protegida en nuestra base de datos (PostgreSQL/AWS) con mecanismos de seguridad modernos, cifrado en tránsito y en reposo (contraseñas con hash). 

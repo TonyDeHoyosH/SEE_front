@@ -2,10 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:open_filex/open_filex.dart';
 import '../services/base_api_service.dart';
 
 class ReportUtils {
-  static Future<void> openClinicalReport(BuildContext context) async {
+  static Future<void> openReport(BuildContext context) async {
     int elapsedSeconds = 0;
     Timer? timer;
     StateSetter? dialogSetState;
@@ -29,7 +30,7 @@ class ReportUtils {
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
                   const Text(
-                    'Generando reporte clínico…',
+                    'Generando reporte…',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
@@ -52,7 +53,7 @@ class ReportUtils {
     final reportsService = context.read<ReportsApiService>();
 
     try {
-      final result = await reportsService.getClinicalReportUrl();
+      final result = await reportsService.getReportUrl();
 
       timer?.cancel();
       final activeCtx = dialogCtx;
@@ -95,7 +96,7 @@ class ReportUtils {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Reporte Clínico Listo',
+                            'Reporte Listo',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
@@ -135,7 +136,7 @@ class ReportUtils {
                           const SizedBox(width: 8),
                           Text(
                             isLocalFile
-                                ? '📂 Guardado en Descargas'
+                                ? '📂 Guardado en tu dispositivo'
                                 : '☁️ Disponible en el servidor',
                             style: const TextStyle(
                               fontSize: 13,
@@ -155,15 +156,6 @@ class ReportUtils {
                             fontFamily: 'monospace',
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Ábrelo desde "Mis Archivos" → Descargas',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF94A3B8),
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
                       ],
                     ],
                   ),
@@ -171,35 +163,6 @@ class ReportUtils {
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    if (isLocalFile)
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.folder_open, size: 18),
-                          label: const Text('Mis Archivos'),
-                          onPressed: () async {
-                            Navigator.pop(ctx);
-                            final uri = Uri.parse(
-                                'content://com.android.externalstorage.documents/root/primary');
-                            try {
-                              await launchUrl(uri,
-                                  mode: LaunchMode.externalApplication);
-                            } catch (_) {
-                              if (ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Busca "Mis Archivos" en tu dispositivo → Descargas'),
-                                    duration: Duration(seconds: 6),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
-                      )
-                    else
-                      const SizedBox.shrink(),
-                    if (isLocalFile) const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.open_in_new, size: 18),
@@ -210,16 +173,18 @@ class ReportUtils {
                             final Uri uri;
                             final LaunchMode mode;
                             if (isLocalFile) {
-                              uri = Uri.file(result);
-                              mode = LaunchMode.platformDefault;
+                              final openResult = await OpenFilex.open(result, type: 'application/pdf');
+                              if (openResult.type != ResultType.done) {
+                                throw Exception('${openResult.type.toString()}: ${openResult.message}');
+                              }
                             } else {
                               uri = Uri.parse(result);
                               mode = LaunchMode.externalApplication;
-                            }
-                            if (await canLaunchUrl(uri)) {
-                              await launchUrl(uri, mode: mode);
-                            } else {
-                              throw Exception('No se pudo abrir');
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: mode);
+                              } else {
+                                throw Exception('No se pudo abrir');
+                              }
                             }
                           } catch (e) {
                             if (ctx.mounted) {
@@ -227,9 +192,8 @@ class ReportUtils {
                                 SnackBar(
                                   content: Text(
                                     isLocalFile
-                                        ? 'El PDF está en: $result\n'
-                                            'Busca la app "Archivos" o "Mis Archivos" en tu dispositivo.'
-                                        : 'No se pudo abrir el enlace: $result',
+                                        ? 'No se pudo abrir automáticamente:\n$e'
+                                        : 'No se pudo abrir el enlace:\n$e',
                                   ),
                                   duration: const Duration(seconds: 8),
                                   backgroundColor: const Color(0xFF475569),

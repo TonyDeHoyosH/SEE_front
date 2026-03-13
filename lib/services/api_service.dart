@@ -987,9 +987,9 @@ class ApiServiceImpl
   }
 
   @override
-  Future<String> getClinicalReportUrl() async {
+  Future<String> getReportUrl() async {
     final reportsService = HttpReportsApiService();
-    return await reportsService.getClinicalReportUrl();
+    return await reportsService.getReportUrl();
   }
 
   @override

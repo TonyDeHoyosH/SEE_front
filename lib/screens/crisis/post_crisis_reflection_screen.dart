@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/crisis_provider.dart';
+import '../../providers/reflections_provider.dart';
 import '../../widgets/crisis_step_indicator.dart';
 import '../../widgets/glass_card.dart';
 import '../../config/theme.dart';
 
 class PostCrisisReflectionScreen extends StatefulWidget {
-  final String crisisId;
-  final int evaluationId;
-  final String evaluation;
+  final String? existingCrisisId;
+  final String? existingEmotion;
 
   const PostCrisisReflectionScreen({
     super.key,
-    required this.crisisId,
-    required this.evaluationId,
-    required this.evaluation,
+    this.existingCrisisId,
+    this.existingEmotion,
   });
 
   @override
@@ -76,13 +75,22 @@ class _PostCrisisReflectionScreenState
 
     try {
       final crisisProvider = context.read<CrisisProvider>();
+      
+      // We either use the passed crisis ID (if coming from ReflectionsScreen)
+      // or the currently active crisis ID in the provider.
+      final activeCrisisId = widget.existingCrisisId ?? crisisProvider.currentCrisis?.id;
+      
+      if (activeCrisisId == null) {
+        throw Exception('No active crisis ID completely found');
+      }
+
       await crisisProvider.saveReflection(
-        crisisId: widget.crisisId,
+        crisisId: activeCrisisId,
         trigger: _triggerController.text.trim(),
         location: location,
         company: company,
         substance: _selectedSubstance!,
-        finalEvaluationId: widget.evaluationId,
+        finalEvaluationId: null, // Since we don't have this, the endpoint just ignores it or updates reflection only
       );
 
       if (mounted) {
@@ -93,6 +101,11 @@ class _PostCrisisReflectionScreenState
             duration: Duration(seconds: 2),
           ),
         );
+        
+        // Notify ReflectionsProvider to manually decrease counter without full DB reload
+        final reflectionProvider = context.read<ReflectionsProvider>();
+        reflectionProvider.removePending(activeCrisisId);
+
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
@@ -111,7 +124,16 @@ class _PostCrisisReflectionScreenState
 
   Future<void> _handleSkip() async {
     final crisisProvider = context.read<CrisisProvider>();
-    await crisisProvider.skipReflection(widget.crisisId);
+    
+    final activeCrisisId = widget.existingCrisisId ?? crisisProvider.currentCrisis?.id;
+    if (activeCrisisId != null) {
+      await crisisProvider.skipReflection(activeCrisisId);
+      
+      // Enqueue a reload so the badge updates with the new skipped reflection
+      if (mounted) {
+        context.read<ReflectionsProvider>().loadPending();
+      }
+    }
 
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -125,8 +147,13 @@ class _PostCrisisReflectionScreenState
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        bottom: const CrisisStepIndicator(currentStep: 5),
+        automaticallyImplyLeading: widget.existingCrisisId != null,
+        title: widget.existingCrisisId != null
+            ? const Text('Completar Reflexión')
+            : null,
+        bottom: widget.existingCrisisId == null
+            ? const CrisisStepIndicator(currentStep: 5)
+            : null,
       ),
       body: Form(
         key: _formKey,

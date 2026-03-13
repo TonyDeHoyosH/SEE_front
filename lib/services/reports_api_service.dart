@@ -17,7 +17,7 @@ Future<void> _writeBytesIsolate(List<dynamic> args) async {
 
 class HttpReportsApiService implements ReportsApiService {
   @override
-  Future<String> getClinicalReportUrl() async {
+  Future<String> getReportUrl() async {
     // 1. Obtener el token directamente (no pasar por el interceptor async
     //    de ApiClient que puede colgarse en SharedPreferences)
     final prefs = await SharedPreferences.getInstance();
@@ -29,8 +29,8 @@ class HttpReportsApiService implements ReportsApiService {
     final cleanBase = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
     final fullUrl = '${cleanBase}clinical';
 
-    debugPrint('[ClinicalReport] ▶ Iniciando request a: $fullUrl');
-    debugPrint('[ClinicalReport]   Token presente: ${token.isNotEmpty}');
+    debugPrint('[Report] ▶ Iniciando request a: $fullUrl');
+    debugPrint('[Report]   Token presente: ${token.isNotEmpty}');
 
     // 3. Dio limpio sin interceptores async (evita el cuelgue)
     final dio = Dio(BaseOptions(
@@ -45,7 +45,7 @@ class HttpReportsApiService implements ReportsApiService {
 
     final cancelToken = CancelToken();
 
-    debugPrint('[ClinicalReport]   Lanzando GET...');
+    debugPrint('[Report]   Lanzando GET...');
 
     try {
       final response = await dio
@@ -66,13 +66,13 @@ class HttpReportsApiService implements ReportsApiService {
       final contentType = response.headers.value('content-type') ?? '';
       final bytes = response.data as List<int>;
 
-      debugPrint('[ClinicalReport] ✅ status=${response.statusCode} '
+      debugPrint('[Report] ✅ status=${response.statusCode} '
           'content-type=$contentType bytes=${bytes.length}');
 
       // Caso 1: JSON con URL
       if (contentType.contains('application/json')) {
         final jsonStr = utf8.decode(bytes);
-        debugPrint('[ClinicalReport] JSON: $jsonStr');
+        debugPrint('[Report] JSON: $jsonStr');
         final data = jsonDecode(jsonStr) as Map<String, dynamic>;
         final url = data['url'] ??
             data['reportUrl'] ??
@@ -83,15 +83,15 @@ class HttpReportsApiService implements ReportsApiService {
         throw Exception('JSON sin campo URL:\n$jsonStr');
       }
 
-      // Caso 2: PDF en bytes → guardar en Downloads con nombre único por fecha
+      // Caso 2: PDF en bytes → guardar en SEE_reports con nombre único por fecha
       if (bytes.isNotEmpty) {
         final now = DateTime.now();
         final stamp =
             '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}'
             '_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-        final savePath = await _getDownloadPath('SEE_Reporte_$stamp.pdf');
+        final savePath = await _getSeeReportsPath('SEE_Reporte_$stamp.pdf');
         await compute(_writeBytesIsolate, [savePath, bytes]);
-        debugPrint('[ClinicalReport] 📄 PDF en: $savePath');
+        debugPrint('[Report] 📄 PDF en: $savePath');
         return savePath;
       }
 
@@ -99,7 +99,7 @@ class HttpReportsApiService implements ReportsApiService {
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) throw Exception('TIMEOUT');
       final statusCode = e.response?.statusCode;
-      debugPrint('[ClinicalReport] ❌ DioError $statusCode: ${e.message}');
+      debugPrint('[Report] ❌ DioError $statusCode: ${e.message}');
       if (statusCode == 401) throw Exception('AUTH_ERROR');
       if (statusCode == 404) throw Exception('NOT_FOUND');
 
@@ -116,23 +116,13 @@ class HttpReportsApiService implements ReportsApiService {
     }
   }
 
-  Future<String> _getDownloadPath(String filename) async {
-    try {
-      final dir = await getExternalStorageDirectory();
-      if (dir != null) {
-        final parts = dir.path.split('/');
-        final idx = parts.indexOf('emulated');
-        if (idx != -1 && parts.length > idx + 1) {
-          final publicRoot = parts.sublist(0, idx + 2).join('/');
-          final downloadDir = Directory('$publicRoot/Download');
-          if (!downloadDir.existsSync()) {
-            await downloadDir.create(recursive: true);
-          }
-          return '${downloadDir.path}/$filename';
-        }
-      }
-    } catch (_) {}
-    final fallback = await getApplicationDocumentsDirectory();
-    return '${fallback.path}/$filename';
+  /// Devuelve la ruta completa dentro de la carpeta interna SEE_reports de la app.
+  Future<String> _getSeeReportsPath(String filename) async {
+    final docs = await getApplicationDocumentsDirectory();
+    final seeDir = Directory('${docs.path}/SEE_reports');
+    if (!seeDir.existsSync()) {
+      await seeDir.create(recursive: true);
+    }
+    return '${seeDir.path}/$filename';
   }
 }

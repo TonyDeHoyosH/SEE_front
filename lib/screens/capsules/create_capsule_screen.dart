@@ -8,6 +8,7 @@ import '../../providers/data_provider.dart';
 import '../../services/base_api_service.dart';
 import '../../services/local_database_service.dart';
 import '../../models/capsule.dart';
+import '../../widgets/crisis_step_indicator.dart';
 
 class CreateCapsuleScreen extends StatefulWidget {
   final Capsule? capsule;
@@ -217,62 +218,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
     }
   }
 
-  Future<bool> _showTermsDialog() async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Términos y Condiciones'),
-        content: const SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Grabación de Audio en SEE',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Al utilizar la función de grabación de audio, aceptas lo siguiente:',
-              ),
-              SizedBox(height: 8),
-              Text(
-                '1. El audio se almacena localmente en tu dispositivo.\n'
-                '2. Solo tú tienes acceso a estas grabaciones.\n'
-                '3. Las grabaciones son para tu uso personal y, si lo deseas, para compartir con tu terapeuta.\n'
-                '4. Puedes eliminar tus grabaciones en cualquier momento.\n'
-                '5. SEE no comparte ni analiza el contenido de tus grabaciones.',
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Tu privacidad es nuestra prioridad.',
-                style: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Acepto'),
-          ),
-        ],
-      ),
-    );
-    return accepted ?? false;
-  }
-
   Future<void> _handleAudioSelected() async {
-    final accepted = await _showTermsDialog();
-    if (!accepted) return;
 
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
@@ -374,22 +320,10 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
             icon: const Icon(Icons.arrow_back),
             onPressed: _goBack,
           ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(widget.capsule != null ? 'Editar Cápsula' : 'Nueva Cápsula'),
-              if (_currentStep > (widget.capsule != null ? 0 : 0))
-                Text(
-                  _capsuleType == 'texto'
-                      ? 'Paso ${_currentStep + 1} de 3'
-                      : 'Paso ${_currentStep + 1} de 3',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-            ],
+          title: Text(widget.capsule != null ? 'Editar Cápsula' : 'Nueva Cápsula'),
+          bottom: CrisisStepIndicator(
+            currentStep: _currentStep + 1,
+            totalSteps: 3,
           ),
         ),
         body: _currentStep == 0

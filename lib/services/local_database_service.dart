@@ -208,6 +208,24 @@ class LocalDatabaseService {
     return await db.query('crisis', orderBy: 'started_at DESC');
   }
 
+  static Future<List<Map<String, dynamic>>> getPendingReflections() async {
+    final db = await database;
+    return await db.query(
+      'crisis',
+      where: 'reflection_pending = ?',
+      whereArgs: [1],
+      orderBy: 'started_at DESC',
+    );
+  }
+
+  static Future<int> countPendingReflections() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM crisis WHERE reflection_pending = 1',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
   // --- Capsules methods ---
 
   static Future<int> insertCapsule(Map<String, dynamic> capsule) async {

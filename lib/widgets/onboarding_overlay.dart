@@ -42,9 +42,9 @@ class _OnboardingOverlayState extends State<OnboardingOverlay>
     ),
     _OnboardingSlide(
       emoji: '📄',
-      title: 'Reporte Clínico',
+      title: 'Reportes',
       description:
-          'Aquí puedes generar y descargar tu reporte clínico, que muestra un resumen de tu actividad en la app: crisis, victorias, y más.\n\nTambién puedes ver y descargar reportes anteriores para compartir con tu terapeuta o guardarlos para ti.',
+          'Aquí puedes generar y descargar tu reporte, que muestra un resumen de tu actividad en la app: crisis, victorias, y más.\n\nTambién puedes ver y descargar reportes anteriores para compartir con tu terapeuta o guardarlos para ti.',
       color: Color(0xFFC8F0D9),
     ),
   ];

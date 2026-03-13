@@ -126,11 +126,9 @@ class CrisisEvaluationScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PostCrisisReflectionScreen(
-          crisisId: crisisProvider.currentCrisis?.id ?? '',
-          evaluationId: evaluationId,
-          evaluation: evaluationDescription,
-        ),
+              builder: (_) => PostCrisisReflectionScreen(
+                existingCrisisId: crisisProvider.currentCrisis?.id ?? '',
+              ),
       ),
     );
   }

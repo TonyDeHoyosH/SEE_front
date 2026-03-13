@@ -411,7 +411,7 @@ class MockApiService
   }
 
   @override
-  Future<String> getClinicalReportUrl() async {
+  Future<String> getReportUrl() async {
     await Future.delayed(const Duration(milliseconds: 800));
     return 'https://www.w3.org/WAI/WCAG21/Techniques/pdf/PDF1';
   }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/reflections_provider.dart';
 
 class FloatingNavbar extends StatelessWidget {
   final int currentIndex;
@@ -14,8 +16,8 @@ class FloatingNavbar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       bottom: 24,
-      left: 20,
-      right: 20,
+      left: 12,
+      right: 12,
       child: Container(
         height: 72,
         decoration: BoxDecoration(
@@ -36,6 +38,7 @@ class FloatingNavbar extends StatelessWidget {
             _buildNavItem(1, Icons.favorite_rounded, 'Victorias'),
             _buildNavItem(2, Icons.health_and_safety_rounded, 'Cápsulas'),
             _buildNavItem(3, Icons.picture_as_pdf_rounded, 'Reporte'),
+            _buildNavItem(4, Icons.edit_note_rounded, 'Reflexiones'),
           ],
         ),
       ),
@@ -49,15 +52,51 @@ class FloatingNavbar extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color:
-                  isActive ? Colors.white : Colors.white.withValues(alpha: 0.5),
-              size: isActive ? 28 : 24,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  color: isActive
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.5),
+                  size: isActive ? 28 : 24,
+                ),
+                if (index == 4) ...[
+                  // The Provider reads the pending reflections from DB during startup and updates
+                  Consumer<ReflectionsProvider>(
+                    builder: (context, provider, child) {
+                      if (provider.pendingCount > 0) {
+                        return Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '${provider.pendingCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                height: 1.0,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -66,7 +105,7 @@ class FloatingNavbar extends StatelessWidget {
                 color: isActive
                     ? Colors.white
                     : Colors.white.withValues(alpha: 0.5),
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
