@@ -118,10 +118,19 @@ class _CapsulesScreenState extends State<CapsulesScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Crea una cápsula personalizada con el botón +',
+                                  'Guarda audios o textos que te den paz mental para escucharlos durante una crisis.',
                                   style:
                                       AppTheme.lightTheme.textTheme.bodyMedium,
                                   textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton(
+                                  onPressed: _navigateToCreate,
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    backgroundColor: AppTheme.accentPrimary,
+                                  ),
+                                  child: const Text('¡Crea tu primera cápsula!'),
                                 ),
                               ],
                             ),

@@ -430,6 +430,16 @@ class LocalDatabaseService {
     ''');
   }
 
+  static Future<int> getDailyVictoriesCount() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final count = Sqflite.firstIntValue(await db.rawQuery(
+      'SELECT COUNT(*) FROM victory_logs WHERE logged_date = ?',
+      [today],
+    ));
+    return count ?? 0;
+  }
+
   // --- Dashboard metrics ---
 
   static Future<void> syncVictoriesFromBackend(

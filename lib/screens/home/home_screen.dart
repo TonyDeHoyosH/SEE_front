@@ -38,8 +38,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       const VictoriesScreen(),
       const CapsulesScreen(),
-      const ReportsScreen(),
       const ReflectionsScreen(),
+      const ReportsScreen(),
     ];
 
     return Scaffold(
@@ -127,6 +127,7 @@ class _DashboardViewState extends State<_DashboardView> {
     final result = {
       'capsules': capsuleCount,
       'victories': victories,
+      'dailyVictories': await LocalDatabaseService.getDailyVictoriesCount(),
     };
     // Show onboarding after first paint
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -191,94 +192,97 @@ class _DashboardViewState extends State<_DashboardView> {
               ),
               const SizedBox(height: 16),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _FeelingButton(
-                      emoji: '😊',
-                      label: 'Estoy bien',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                '¡Check positivo registrado! Qué bueno que te sientas bien hoy.'),
-                            backgroundColor: Color(0xFF4CAF50),
-                            duration: Duration(seconds: 3),
-                          ),
-                        );
-                        // Still navigate to victories to keep the flow
-                        widget.onNavigateToVictories();
-                      },
+                Row(
+                  children: [
+                    Expanded(
+                      child: _FeelingButton(
+                        emoji: '😊',
+                        label: 'Estoy bien',
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  '¡Check positivo registrado! Qué bueno que te sientas bien hoy.'),
+                              backgroundColor: Color(0xFF4CAF50),
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
+                          // Still navigate to victories to keep the flow
+                          widget.onNavigateToVictories();
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _FeelingButton(
-                      emoji: '🆘',
-                      label: 'Necesito ayuda',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const CrisisEmotionScreen(),
-                          ),
-                        );
-                      },
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _FeelingButton(
+                        emoji: '🆘',
+                        label: 'Necesito ayuda',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CrisisEmotionScreen(),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
 
-              const SizedBox(height: 28),
+                const SizedBox(height: 28),
 
-              GlassCard(
-                padding: const EdgeInsets.all(24),
-                child: FutureBuilder<Map<String, int>>(
+                FutureBuilder<Map<String, int>>(
                   future: _metricsFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: CircularProgressIndicator(),
-                      );
+                      return const Center(child: CircularProgressIndicator());
                     }
 
                     final data =
-                        snapshot.data ?? {'capsules': 0, 'victories': 0};
-
+                        snapshot.data ?? {'capsules': 0, 'victories': 0, 'dailyVictories': 0};
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Resumen semanal',
-                          style: AppTheme.lightTheme.textTheme.headlineMedium
-                              ?.copyWith(
-                            fontSize: 18,
+                        GlassCard(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Resumen semanal',
+                                style: AppTheme.lightTheme.textTheme.headlineMedium
+                                    ?.copyWith(
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              _SummaryRow(
+                                icon: Icons.emoji_events_rounded,
+                                title: 'Victorias',
+                                value: '${data['victories']}',
+                              ),
+                              const SizedBox(height: 16),
+                              _SummaryRow(
+                                icon: Icons.auto_awesome,
+                                title: 'Cápsulas activas',
+                                value: '${data['capsules']}',
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        _SummaryRow(
-                          icon: Icons.emoji_events_rounded,
-                          title: 'Victorias',
-                          value: '${data['victories']}',
-                        ),
-                        const SizedBox(height: 16),
-                        _SummaryRow(
-                          icon: Icons.auto_awesome,
-                          title: 'Cápsulas activas',
-                          value: '${data['capsules']}',
                         ),
                       ],
                     );
                   },
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
+
 
 class _FeelingButton extends StatelessWidget {
   final String emoji;

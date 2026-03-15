@@ -191,6 +191,14 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
                   const AppDrawerButton(),
                 ],
               ),
+              const SizedBox(height: 12),
+              Text(
+                'Registra al menos una victoria al día para recordar tus logros personales, por más pequeños que sean.',
+                style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.textSecondary,
+                  height: 1.4,
+                ),
+              ),
               const SizedBox(height: 28),
               if (provider.isLoading)
                 const Center(
