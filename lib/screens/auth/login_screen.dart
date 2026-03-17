@@ -201,59 +201,7 @@ class _LoginScreenState extends State<LoginScreen>
                       },
                     ),
                     const SizedBox(height: 16),
-                    Consumer<AuthProvider>(
-                      builder: (context, authProvider, child) {
-                        return OutlinedButton.icon(
-                          onPressed: authProvider.isLoading
-                              ? null
-                              : () {
-                                  authProvider.loginWithGoogle().then((_) {
-                                    if (authProvider.isAuthenticated &&
-                                        mounted) {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (_) => const HomeScreen()),
-                                      );
-                                    } else if (authProvider.errorMessage !=
-                                            null &&
-                                        mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content:
-                                              Text(authProvider.errorMessage!),
-                                          backgroundColor: AppTheme.errorRed,
-                                        ),
-                                      );
-                                    }
-                                  });
-                                },
-                          icon: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: Image.asset(
-                              'assets/images/google_logo.png',
-                              width: 20,
-                              height: 20,
-                            ),
-                          ),
-                          label: const Text('Iniciar sesión con Google'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.textPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: BorderSide(
-                                color: AppTheme.textSecondary
-                                    .withValues(alpha: 0.3),
-                                width: 2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
+
                     TextButton(
                       onPressed: () {
                         Navigator.push(

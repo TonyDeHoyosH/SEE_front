@@ -8,7 +8,8 @@ import '../config/theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/victory_provider.dart';
 import '../screens/auth/login_screen.dart';
-
+import 'privacy_policy_dialog.dart';
+import 'terms_conditions_dialog.dart';
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
@@ -145,34 +146,30 @@ class AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.shield_outlined,
                 color: AppTheme.accentPrimary),
             title: Text(
-              'Política de Privacidad',
+              'Aviso de Privacidad',
               style: GoogleFonts.nunito(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
             onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Próximamente')),
-              );
+              Navigator.pop(context); // Cierra el menú
+              PrivacyPolicyDialog.show(context);
             },
           ),
           ListTile(
             leading: const Icon(Icons.description_outlined,
                 color: AppTheme.accentPrimary),
             title: Text(
-              'Términos y condiciones',
+              'Términos y Condiciones',
               style: GoogleFonts.nunito(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
             onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Próximamente')),
-              );
+              Navigator.pop(context); // Cierra el menú
+              TermsAndConditionsDialog.show(context);
             },
           ),
           const Divider(),
