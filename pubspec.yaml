@@ -48,6 +48,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.1
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
@@ -57,3 +58,8 @@ flutter:
 
 dependency_overrides:
   record_platform_interface: 1.2.0
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_icon.png"

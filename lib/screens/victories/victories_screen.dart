@@ -348,11 +348,11 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
                   ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: provider.history.take(7).length,
+                    itemCount: provider.history.take(5).length,
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final log = provider.history.take(7).toList()[index];
+                      final log = provider.history.take(5).toList()[index];
                       return _VictoryCard(log: log);
                     },
                   ),
