@@ -116,6 +116,11 @@ class _DashboardViewState extends State<_DashboardView> {
   }
 
   Future<Map<String, int>> _loadMetrics() async {
+    // Intentar sincronizar crisis locales en segundo plano
+    try {
+      context.read<CoreApiService>().syncOfflineCrises().catchError((e) => debugPrint('Error en sync background: $e'));
+    } catch (_) {}
+
     final victories = await LocalDatabaseService.countWeeklyVictories();
     int capsuleCount = 0;
     try {

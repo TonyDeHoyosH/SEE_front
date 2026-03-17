@@ -62,6 +62,10 @@ abstract class CoreApiService {
   });
   Future<List<Crisis>> getMyCrises();
 
+  Future<void> syncOfflineCrises();
+  Future<void> syncOfflineVictories();
+  Future<void> syncProfilePhoto(String userId);
+
   Future<Victory> createVictory(String name, DateTime occurredAt);
   Future<List<Victory>> getMyVictories();
   Future<void> deleteVictoryType(int id);

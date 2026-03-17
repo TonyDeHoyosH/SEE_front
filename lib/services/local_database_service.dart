@@ -16,7 +16,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE crisis (
@@ -61,6 +61,22 @@ class LocalDatabaseService {
             definition_id INTEGER NOT NULL,
             logged_date TEXT NOT NULL,
             UNIQUE(definition_id, logged_date)
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE pending_victories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            definition_id INTEGER NOT NULL,
+            logged_date TEXT NOT NULL,
+            victory_name TEXT NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE profile_cache (
+            user_id TEXT PRIMARY KEY,
+            local_path TEXT,
+            remote_url TEXT,
+            is_synced INTEGER NOT NULL DEFAULT 0
           )
         ''');
         await _seedDefaultVictories(db);
@@ -134,6 +150,24 @@ class LocalDatabaseService {
           await db.execute('DROP TABLE capsules');
           await db.execute('ALTER TABLE capsules_new RENAME TO capsules');
         }
+        if (oldVersion < 8) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS pending_victories (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              definition_id INTEGER NOT NULL,
+              logged_date TEXT NOT NULL,
+              victory_name TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS profile_cache (
+              user_id TEXT PRIMARY KEY,
+              local_path TEXT,
+              remote_url TEXT,
+              is_synced INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+        }
       },
     );
   }
@@ -159,6 +193,26 @@ class LocalDatabaseService {
       'crisis',
       crisis,
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<int> updateCrisisProgress(
+    String crisisId, {
+    bool? breathingCompleted,
+    int? finalEvaluationId,
+  }) async {
+    final db = await database;
+    final Map<String, dynamic> updates = {};
+    if (breathingCompleted != null) updates['breathing_completed'] = breathingCompleted ? 1 : 0;
+    if (finalEvaluationId != null) updates['evaluation'] = finalEvaluationId.toString();
+    
+    if (updates.isEmpty) return 0;
+    
+    return await db.update(
+      'crisis',
+      updates,
+      where: 'id = ?',
+      whereArgs: [crisisId],
     );
   }
 
@@ -501,4 +555,102 @@ class LocalDatabaseService {
     );
     return Sqflite.firstIntValue(result) ?? 0;
   }
+
+  // ---------------------------------------------------------------------------
+  // PENDING VICTORIES (offline queue)
+  // ---------------------------------------------------------------------------
+
+  static Future<void> insertPendingVictory({
+    required int definitionId,
+    required String victoryName,
+    required String loggedDate,
+  }) async {
+    final db = await database;
+    await db.insert(
+      'pending_victories',
+      {
+        'definition_id': definitionId,
+        'victory_name': victoryName,
+        'logged_date': loggedDate,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getPendingVictories() async {
+    final db = await database;
+    return await db.query('pending_victories');
+  }
+
+  static Future<void> deletePendingVictory(int id) async {
+    final db = await database;
+    await db.delete('pending_victories', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<bool> hasPendingVictories() async {
+    final db = await database;
+    final count = Sqflite.firstIntValue(
+        await db.rawQuery('SELECT COUNT(*) FROM pending_victories'));
+    return (count ?? 0) > 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // PROFILE CACHE (offline avatar)
+  // ---------------------------------------------------------------------------
+
+  static Future<void> saveProfileCache({
+    required String userId,
+    required String localPath,
+    String? remoteUrl,
+    bool isSynced = false,
+  }) async {
+    final db = await database;
+    await db.insert(
+      'profile_cache',
+      {
+        'user_id': userId,
+        'local_path': localPath,
+        'remote_url': remoteUrl,
+        'is_synced': isSynced ? 1 : 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<Map<String, dynamic>?> getProfileCache(String userId) async {
+    final db = await database;
+    final rows = await db.query(
+      'profile_cache',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  static Future<void> markProfileCacheSynced(String userId) async {
+    final db = await database;
+    await db.update(
+      'profile_cache',
+      {'is_synced': 1},
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  static Future<void> clearProfileCache(String userId) async {
+    final db = await database;
+    await db.delete('profile_cache', where: 'user_id = ?', whereArgs: [userId]);
+  }
+
+  static Future<bool> hasPendingProfilePhoto(String userId) async {
+    final db = await database;
+    final rows = await db.query(
+      'profile_cache',
+      where: 'user_id = ? AND is_synced = 0',
+      whereArgs: [userId],
+    );
+    return rows.isNotEmpty;
+  }
 }
+

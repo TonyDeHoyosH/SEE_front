@@ -34,28 +34,36 @@ class _CrisisCapsulesSelectionScreenState
       final crisisProvider = context.read<CrisisProvider>();
       final currentCrisis = crisisProvider.currentCrisis;
 
-      final allCapsules = await context.read<CoreApiService>().getCapsules();
-      // Nunca mostrar cápsulas inactivas en el flujo de crisis
-      final activeCapsules = allCapsules.where((c) => c.isActive).toList();
+      final raw = await context.read<CoreApiService>().getCapsules();
 
-      if (currentCrisis != null &&
-          currentCrisis.emotionIds.isNotEmpty &&
-          mounted) {
-        setState(() {
-          _capsules = activeCapsules.where((c) {
-            return c.emotionIds
-                .any((id) => currentCrisis.emotionIds.contains(id));
-          }).toList();
-          // Si ninguna cápsula activa coincide con las emociones, mostrar todas las activas
-          if (_capsules.isEmpty) _capsules = activeCapsules;
-          _isLoading = false;
-        });
-      } else if (mounted) {
-        setState(() {
-          _capsules = activeCapsules;
-          _isLoading = false;
-        });
+      // Dedup by ID (defensive — getCapsules should already do this)
+      final Map<String, Capsule> byId = {};
+      for (final c in raw) {
+        byId[c.id] = c;
       }
+      final deduped = byId.values.toList();
+      
+      // Nunca mostrar cápsulas inactivas en el flujo de crisis
+      final activeCapsules = deduped.where((c) => c.isActive).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        if (currentCrisis != null && currentCrisis.emotionIds.isNotEmpty) {
+          // Sort: matching emotions first, then the rest
+          activeCapsules.sort((a, b) {
+            final aMatches = a.emotionIds
+                .any((id) => currentCrisis.emotionIds.contains(id));
+            final bMatches = b.emotionIds
+                .any((id) => currentCrisis.emotionIds.contains(id));
+            if (aMatches && !bMatches) return -1;
+            if (!aMatches && bMatches) return 1;
+            return 0;
+          });
+        }
+        _capsules = activeCapsules;
+        _isLoading = false;
+      });
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);

@@ -117,7 +117,16 @@ class VictoryProvider extends ChangeNotifier {
         final def = _definitions.firstWhere((d) => d.id == definitionId);
         await apiService.createVictory(def.name, DateTime.now());
       } catch (e) {
-        debugPrint('Error sincronizando victoria: $e');
+        // Offline: queue in pending_victories for later sync
+        debugPrint('Victoria sin internet, guardando offline: $e');
+        try {
+          final def = _definitions.firstWhere((d) => d.id == definitionId);
+          await LocalDatabaseService.insertPendingVictory(
+            definitionId: definitionId,
+            victoryName: def.name,
+            loggedDate: DateTime.now().toIso8601String(),
+          );
+        } catch (_) {}
       }
     }
     await _refreshHistory();

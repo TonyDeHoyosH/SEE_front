@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user.dart';
@@ -120,10 +121,34 @@ class AuthProvider extends ChangeNotifier {
     try {
       final updated = await _coreService.updateProfile(avatarImage: imageFile);
       _user = _user?.copyWith(avatarUrl: updated.avatarUrl);
+      final prefs = await SharedPreferences.getInstance();
+      if (updated.avatarUrl != null) {
+        await prefs.setString('user_avatar', updated.avatarUrl!);
+      }
+      // Clean any pending offline cache for this user
+      if (_user?.id != null) {
+        await LocalDatabaseService.clearProfileCache(_user!.id);
+      }
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      // Offline: save image locally for later sync
+      debugPrint('Sin internet para subir avatar, guardando offline.');
+      try {
+        final userId = _user?.id ?? 'guest';
+        final appDir = await getApplicationDocumentsDirectory();
+        final localPath = '${appDir.path}/avatar_$userId.jpg';
+        await imageFile.copy(localPath);
+        await LocalDatabaseService.saveProfileCache(
+          userId: userId,
+          localPath: localPath,
+          isSynced: false,
+        );
+        // Show local file as current avatar in UI
+        _user = _user?.copyWith(avatarUrl: 'file://$localPath');
+      } catch (cacheError) {
+        _errorMessage = e.toString();
+      }
       _isLoading = false;
       notifyListeners();
     }
@@ -207,12 +232,24 @@ class AuthProvider extends ChangeNotifier {
       final avatarUrl = prefs.getString('user_avatar');
 
       if (token != null && email != null && nombre != null && id != null) {
+        // Check for locally cached (offline) avatar
+        String? resolvedAvatar = avatarUrl;
+        try {
+          final cache = await LocalDatabaseService.getProfileCache(id);
+          if (cache != null && (cache['is_synced'] as int? ?? 1) == 0) {
+            final localPath = cache['local_path'] as String?;
+            if (localPath != null && await File(localPath).exists()) {
+              resolvedAvatar = 'file://$localPath';
+            }
+          }
+        } catch (_) {}
+
         _user = User(
           id: id,
           email: email,
           nombrePreferido: nombre,
           token: token,
-          avatarUrl: avatarUrl,
+          avatarUrl: resolvedAvatar,
         );
       }
 

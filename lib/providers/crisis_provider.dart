@@ -69,7 +69,7 @@ class CrisisProvider extends ChangeNotifier {
         'emotion': _currentCrisis!.emotion,
         'emotion_ids': _currentCrisis!.emotionIds.join(','),
         'intensity': _currentCrisis!.intensity,
-        'evaluation': evaluation,
+        'evaluation': evaluationId.toString(), // Store ID for sync
         'breathing_completed': breathingCompleted ? 1 : 0,
         'is_synced': 1,
         'reflection_pending': 1,
@@ -87,7 +87,7 @@ class CrisisProvider extends ChangeNotifier {
         'emotion': _currentCrisis!.emotion,
         'emotion_ids': _currentCrisis!.emotionIds.join(','),
         'intensity': _currentCrisis!.intensity,
-        'evaluation': evaluation,
+        'evaluation': evaluationId.toString(), // Store ID for sync
         'breathing_completed': breathingCompleted ? 1 : 0,
         'is_synced': 0,
         'reflection_pending': 1,
@@ -135,7 +135,7 @@ class CrisisProvider extends ChangeNotifier {
     String? notes,
     int? finalEvaluationId,
   }) async {
-    // Step 2: Save reflection to backend
+    // Step 1: Save reflection to backend
     try {
       await _coreService.saveCrisisReflection(
         crisisId,
@@ -158,12 +158,24 @@ class CrisisProvider extends ChangeNotifier {
       substance: substance,
     );
 
+    // Step 2: Si se guardó en backend exitosamente, intentar sincronizar
+    // las crisis offline que quedaron pendientes (ej. la de esta misma sesión)
+    _coreService.syncOfflineCrises().catchError((e) {
+      debugPrint('[Crisis] Sync background falló: $e');
+      return null;
+    });
+
     _currentCrisis = null;
     _recommendedCapsule = null;
     notifyListeners();
   }
 
   Future<void> skipReflection(String crisisId) async {
+    // Intentar sincronizar crisis offline pendientes en segundo plano
+    _coreService.syncOfflineCrises().catchError((e) {
+      debugPrint('[Crisis] Sync background falló al skipear: $e');
+      return null;
+    });
     _currentCrisis = null;
     _recommendedCapsule = null;
     notifyListeners();

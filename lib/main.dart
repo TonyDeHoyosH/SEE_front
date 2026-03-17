@@ -7,12 +7,14 @@ import 'services/base_api_service.dart';
 import 'services/api_service.dart';
 import 'services/mock_api_service.dart';
 import 'providers/auth_provider.dart';
+import 'providers/connectivity_provider.dart';
 import 'providers/data_provider.dart';
 import 'providers/crisis_provider.dart';
 import 'providers/victory_provider.dart';
 import 'providers/reflections_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'widgets/offline_banner.dart';
 
 // Cambia a false cuando el backend esté corriendo en el servidor.
 const bool _kUseMock = false;
@@ -80,8 +82,12 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => VictoryProvider(coreService),
         ),
+        ChangeNotifierProvider(create: (_) => ReflectionsProvider()..loadPending()),
         ChangeNotifierProvider(
-          create: (_) => ReflectionsProvider()..loadPending(),
+          create: (ctx) => ConnectivityProvider(
+            coreService,
+            () => ctx.read<AuthProvider>().user?.id,
+          ),
         ),
       ],
       child: Consumer<AuthProvider>(
@@ -95,7 +101,12 @@ class MyApp extends StatelessWidget {
                 decoration: const BoxDecoration(
                   gradient: AppTheme.globalBackgroundGradient,
                 ),
-                child: child,
+                child: Stack(
+                  children: [
+                    child!,
+                    const OfflineBanner(),
+                  ],
+                ),
               );
             },
             home: authProvider.isAuthenticated

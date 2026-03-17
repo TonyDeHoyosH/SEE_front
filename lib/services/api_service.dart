@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'base_api_service.dart';
 import 'api_client.dart';
@@ -226,15 +228,31 @@ class ApiServiceImpl
 
   @override
   Future<List<Emotion>> getEmotions() async {
+    final prefs = await SharedPreferences.getInstance();
     try {
       final response = await _apiClient.coreDio.get('/catalogs/emotions');
       if (response.data is List) {
-        return (response.data as List).map((e) => Emotion.fromJson(e)).toList();
+        final list = response.data as List;
+        await prefs.setString('cached_emotions', jsonEncode(list));
+        return list.map((e) => Emotion.fromJson(e)).toList();
       }
-      return _mockEmotions();
+      return _fallbackEmotions(prefs);
     } catch (_) {
-      return _mockEmotions();
+      return _fallbackEmotions(prefs);
     }
+  }
+
+  List<Emotion> _fallbackEmotions(SharedPreferences prefs) {
+    final cached = prefs.getString('cached_emotions');
+    if (cached != null) {
+      try {
+        final list = jsonDecode(cached) as List;
+        return list.map((e) => Emotion.fromJson(e as Map<String, dynamic>)).toList();
+      } catch (e) {
+        debugPrint('Error decodificando emociones cacheadas: $e');
+      }
+    }
+    return _mockEmotions();
   }
 
   List<Emotion> _mockEmotions() => [
@@ -373,9 +391,27 @@ class ApiServiceImpl
           'created_at': json['createdAt'] ?? DateTime.now().toIso8601String(),
         };
 
-        // Upsert en local DB (INSERT IGNORE + UPDATE sin tocar is_active)
-        // Esto garantiza que updateCapsuleActiveState siempre tenga una fila.
+        // Opsert en local DB (INSERT IGNORE + UPDATE sin tocar is_active)
         await LocalDatabaseService.upsertCapsuleFromBackend(capsuleMap);
+
+        // Download audio file to local storage if it's an audio capsule and has a valid URL
+        if (contentType.toUpperCase() == 'AUDIO' && audioUrl != null && localAudio == audioUrl) {
+            try {
+              final appDir = await getApplicationDocumentsDirectory();
+              final localPath = '${appDir.path}/capsule_$capsuleId.mp4';
+              final localFile = File(localPath);
+              if (!await localFile.exists()) {
+                 debugPrint('Downloading audio for capsule $capsuleId to $localPath');
+                 await Dio().download(audioUrl, localPath);
+              }
+              // Update localAudio and map
+              localAudio = localPath;
+              capsuleMap['audio_path'] = localPath;
+              await LocalDatabaseService.upsertCapsuleFromBackend(capsuleMap); // update audio_path
+            } catch (e) {
+              debugPrint('Error downloading audio for capsule $capsuleId: $e');
+            }
+        }
 
         // Leer is_active DESDE la DB local (fuente de verdad para el usuario)
         final freshLocalRow =
@@ -400,14 +436,42 @@ class ApiServiceImpl
         }));
       }
 
-      if (emotionId != null) {
-        return capsules.where((c) => c.emotionIds.contains(emotionId)).toList();
+      // Deduplicate by ID properly
+      final Map<String, Capsule> uniqueCapsules = {};
+      for (final c in capsules) {
+        uniqueCapsules[c.id] = c;
       }
-      return capsules;
-    } on DioException catch (e) {
-      debugPrint(
-          'ERROR getCapsules: ${e.response?.statusCode} ${e.response?.data}');
-      throw Exception('Error al obtener capsulas: ${e.message}');
+      final dedupedCapsules = uniqueCapsules.values.toList();
+
+      if (emotionId != null) {
+        return dedupedCapsules.where((c) => c.emotionIds.contains(emotionId)).toList();
+      }
+      return dedupedCapsules;
+    } catch (e) {
+      debugPrint('getCapsules error, cargando desde local DB: $e');
+      
+      final localRows = await LocalDatabaseService.getAllCapsules();
+      final Map<String, Capsule> localById = {};
+      for (final row in localRows) {
+        final c = Capsule.fromJson({
+          'id': row['id'],
+          'title': row['title'],
+          'type': row['type'],
+          'content': row['content'],
+          'audio_path': row['audio_path'],
+          'is_active': row['is_active'] == 1,
+          'emotion_ids': row['emotion_ids'],
+          'created_at': row['created_at'],
+          'is_synced': row['is_synced'] == 1,
+        });
+        localById[c.id] = c;
+      }
+      final offlineCapsules = localById.values.toList();
+      
+      if (emotionId != null) {
+        return offlineCapsules.where((c) => c.emotionIds.contains(emotionId)).toList();
+      }
+      return offlineCapsules;
     }
   }
 
@@ -621,6 +685,24 @@ class ApiServiceImpl
           await _apiClient.coreDio.patch('/capsules/$id', data: body);
       final json = response.data as Map<String, dynamic>;
 
+      if (isActive == false) {
+        try {
+          final localRow = await LocalDatabaseService.getCapsuleById(id);
+          if (localRow != null) {
+            final existingAudio = localRow['audio_path'] as String?;
+            if (existingAudio != null && !existingAudio.startsWith('http')) {
+              final file = File(existingAudio);
+              if (await file.exists()) {
+                await file.delete();
+                debugPrint('Audio local eliminado al desactivar cápsula.');
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error eliminando audio local tras desactivar cápsula: $e');
+        }
+      }
+
       // DEBUG: ver qué devuelve el backend en el PATCH
       debugPrint('==== UPDATE CAPSULE RESPONSE ====');
       debugPrint('Keys: ${json.keys.toList()}');
@@ -670,6 +752,25 @@ class ApiServiceImpl
   Future<void> deleteCapsule(String id) async {
     try {
       await _apiClient.coreDio.delete('/capsules/$id');
+      
+      // Cleanup offline files and db row
+      try {
+        final localRow = await LocalDatabaseService.getCapsuleById(id);
+        if (localRow != null) {
+          final existingAudio = localRow['audio_path'] as String?;
+          if (existingAudio != null && !existingAudio.startsWith('http')) {
+            final file = File(existingAudio);
+            if (await file.exists()) {
+              await file.delete();
+              debugPrint('Audio local eliminado al borrar cápsula.');
+            }
+          }
+        }
+        await LocalDatabaseService.deleteCapsule(id);
+      } catch (e) {
+        debugPrint('Error limpiando datos locales al borrar cápsula: $e');
+      }
+      
     } on DioException catch (e) {
       final errorMsg = e.response?.data['error'] ?? e.message;
       throw Exception('Error al eliminar cápsula: $errorMsg');
@@ -729,9 +830,71 @@ class ApiServiceImpl
         'crisis': crisis,
         'capsule': recommendedCapsule,
       };
-    } on DioException catch (e) {
-      final errorMsg = e.response?.data['error'] ?? e.message;
-      throw Exception('Error al iniciar crisis: $errorMsg');
+    } catch (e) {
+      debugPrint('Error de red al crear crisis, usando modo offline: $e');
+      
+      final crisisId = 'local_${DateTime.now().millisecondsSinceEpoch}';
+      
+      final crisis = Crisis(
+        id: crisisId,
+        startedAt: DateTime.now(),
+        emotion: 'Varias emociones',
+        emotionIds: emotionIds,
+        intensity: intensityLevel,
+        evaluation: '',
+        breathingCompleted: false,
+      );
+
+      // Insert en local DB
+      await LocalDatabaseService.insertCrisis({
+        'id': crisis.id,
+        'started_at': crisis.startedAt.toIso8601String(),
+        'emotion': crisis.emotion,
+        'emotion_ids': emotionIds.join(','),
+        'intensity': crisis.intensity,
+        'evaluation': crisis.evaluation,
+        'breathing_completed': crisis.breathingCompleted ? 1 : 0,
+        'is_synced': 0, // No sincronizado con backend
+        'reflection_pending': 1,
+      });
+
+      // Find a capsule to recommend — solo las ACTIVAS (y de paso obtenemos las locales si no hay red)
+      Capsule? recommendedCapsule;
+      try {
+        final localRows = await LocalDatabaseService.getAllCapsules();
+        final localCapsules = localRows.map((row) {
+          return Capsule.fromJson({
+            'id': row['id'],
+            'title': row['title'],
+            'type': row['type'],
+            'content': row['content'],
+            'audio_path': row['audio_path'],
+            'is_active': row['is_active'] == 1,
+            'emotion_ids': row['emotion_ids'],
+            'created_at': row['created_at'],
+            'is_synced': row['is_synced'] == 1,
+          });
+        }).toList();
+        
+        final activeCapsules = localCapsules.where((c) => c.isActive).toList();
+        if (activeCapsules.isNotEmpty && emotionIds.isNotEmpty) {
+          for (final eid in emotionIds) {
+            final matches = activeCapsules
+                .where((c) => c.emotionIds.contains(eid))
+                .toList();
+            if (matches.isNotEmpty) {
+              recommendedCapsule = matches.first;
+              break;
+            }
+          }
+          recommendedCapsule ??= activeCapsules.first;
+        }
+      } catch (_) {}
+
+      return {
+        'crisis': crisis,
+        'capsule': recommendedCapsule,
+      };
     }
   }
 
@@ -764,9 +927,18 @@ class ApiServiceImpl
         evaluation: '',
         breathingCompleted: breathingExerciseCompleted ?? false,
       );
-    } on DioException catch (e) {
-      debugPrint('[Crisis] PATCH /progress ERROR: ${e.response?.data}');
-      throw Exception('Error al actualizar el progreso de la crisis.');
+    } catch (e) {
+      debugPrint('[Crisis] PATCH /progress ERROR, guardando local e indicando offline: $e');
+
+      // Persist locally AND rethrow so the caller (endCrisis) knows to mark
+      // the crisis as is_synced = 0 for later synchronization.
+      await LocalDatabaseService.updateCrisisProgress(
+        id,
+        breathingCompleted: breathingExerciseCompleted,
+        finalEvaluationId: finalEvaluationId,
+      );
+
+      rethrow;
     }
   }
 
@@ -801,9 +973,24 @@ class ApiServiceImpl
         evaluation: notes ?? '',
         breathingCompleted: data['breathingExerciseCompleted'] ?? false,
       );
-    } on DioException catch (e) {
-      print('Error guardando reflexión: ${e.response?.data}');
-      throw Exception('Error al guardar la reflexión de la crisis.');
+    } catch (e) {
+      debugPrint('Error guardando reflexión red, usando local: $e');
+      
+      await LocalDatabaseService.updateCrisisReflection(
+        id,
+        trigger: triggerDesc ?? '',
+        location: location ?? '',
+        company: companion ?? '',
+        substance: substanceUse ?? '',
+      );
+
+      return Crisis(
+        id: id,
+        startedAt: DateTime.now(),
+        emotion: 'Completada',
+        evaluation: notes ?? '',
+        breathingCompleted: true,
+      );
     }
   }
 
@@ -826,7 +1013,115 @@ class ApiServiceImpl
   }
 
   // ---------------------------------------------------------------------------
-  // CORE - VICTORIES
+  // OFFLINE SYNC
+  // ---------------------------------------------------------------------------
+  Future<void> syncOfflineCrises() async {
+    final unsynced = await LocalDatabaseService.getUnsyncedCrises();
+    if (unsynced.isEmpty) return;
+
+    debugPrint('Iniciando sincronización de ${unsynced.length} crisis offline...');
+    
+    for (final crisisMap in unsynced) {
+      try {
+        final localId = crisisMap['id'] as String;
+        final emotionIdsStr = crisisMap['emotion_ids'] as String? ?? '';
+        final emotionIds = emotionIdsStr.split(',').where((e) => e.isNotEmpty).map(int.parse).toList();
+        final intensity = crisisMap['intensity'] as int? ?? 5;
+        
+        // 1. Crear crisis
+        final res = await _apiClient.coreDio.post('/crisis', data: {
+          'emotionIds': emotionIds,
+          'intensity': intensity,
+        });
+        
+        final newCrisisId = res.data['crisisId'];
+        
+        // 2. updateProgress
+        final breathingCompleted = crisisMap['breathing_completed'] == 1;
+        await _apiClient.coreDio.patch('/crisis/$newCrisisId/progress', data: {
+          'breathingExerciseCompleted': breathingCompleted,
+          if (crisisMap['evaluation'] != null && crisisMap['evaluation'].toString().isNotEmpty)
+             'finalEvaluationId': int.tryParse(crisisMap['evaluation'].toString()),
+        });
+        
+        // 3. saveReflection
+        final reflectionPending = crisisMap['reflection_pending'] == 1;
+        if (!reflectionPending) {
+           await _apiClient.coreDio.put(
+             '/crisis/$newCrisisId/reflection',
+             data: {
+               if (crisisMap['reflection_trigger'] != null) 'triggerDesc': crisisMap['reflection_trigger'],
+               if (crisisMap['reflection_location'] != null) 'location': crisisMap['reflection_location'],
+               if (crisisMap['reflection_company'] != null) 'companion': crisisMap['reflection_company'],
+               if (crisisMap['reflection_substance'] != null) 'substanceUse': crisisMap['reflection_substance'],
+             },
+           );
+        }
+        
+        // 4. Mark as synced and delete from local pending to avoid duplicate
+        final db = await LocalDatabaseService.database;
+        await db.delete('crisis', where: 'id = ?', whereArgs: [localId]);
+        debugPrint('Sincronizada crisis $localId exitosamente.');
+      } catch (e) {
+        debugPrint('Error sincronizando crisis offline: $e');
+      }
+    }
+  }
+
+  @override
+  Future<void> syncOfflineVictories() async {
+    final pending = await LocalDatabaseService.getPendingVictories();
+    if (pending.isEmpty) return;
+
+    debugPrint('Sincronizando ${pending.length} victorias offline...');
+    for (final row in pending) {
+      try {
+        final rowId = row['id'] as int;
+        final name = row['victory_name'] as String;
+        final dateStr = row['logged_date'] as String;
+        final date = DateTime.tryParse(dateStr) ?? DateTime.now();
+
+        await _apiClient.coreDio.post('/victories', data: {
+          'newCustomVictoryName': name,
+          'occurredAt': date.toIso8601String(),
+        });
+
+        await LocalDatabaseService.deletePendingVictory(rowId);
+        debugPrint('Victoria offline "$name" sincronizada.');
+      } catch (e) {
+        debugPrint('Error sincronizando victoria offline: $e');
+      }
+    }
+  }
+
+  @override
+  Future<void> syncProfilePhoto(String userId) async {
+    final cache = await LocalDatabaseService.getProfileCache(userId);
+    if (cache == null) return;
+    final isSynced = (cache['is_synced'] as int? ?? 1) == 1;
+    if (isSynced) return;
+
+    final localPath = cache['local_path'] as String?;
+    if (localPath == null) return;
+
+    final file = File(localPath);
+    if (!await file.exists()) {
+      await LocalDatabaseService.clearProfileCache(userId);
+      return;
+    }
+
+    try {
+      debugPrint('Sincronizando foto de perfil offline desde $localPath...');
+      await updateProfile(avatarImage: file);
+      await LocalDatabaseService.markProfileCacheSynced(userId);
+      debugPrint('Foto de perfil sincronizada exitosamente.');
+    } catch (e) {
+      debugPrint('Error sincronizando foto de perfil: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+
   // ---------------------------------------------------------------------------
   @override
   Future<Victory> createVictory(String name, DateTime occurredAt) async {

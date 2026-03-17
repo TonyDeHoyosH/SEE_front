@@ -298,6 +298,21 @@ class MockApiService
   }
 
   @override
+  Future<void> syncOfflineCrises() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+
+  @override
+  Future<void> syncOfflineVictories() async {
+    await Future.delayed(const Duration(milliseconds: 200));
+  }
+
+  @override
+  Future<void> syncProfilePhoto(String userId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+  }
+
+  @override
   Future<Victory> createVictory(String name, DateTime occurredAt) async {
     await Future.delayed(const Duration(seconds: 1));
 
