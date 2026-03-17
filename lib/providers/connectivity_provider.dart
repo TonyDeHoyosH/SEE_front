@@ -7,13 +7,18 @@ import '../services/local_database_service.dart';
 class ConnectivityProvider extends ChangeNotifier {
   final CoreApiService _coreService;
   final String? Function() _getUserId;
+  final Future<void> Function()? _onSyncComplete;
 
   bool _isOnline = true;
   bool _hasPendingSync = false;
   bool _isSyncing = false;
   StreamSubscription<List<ConnectivityResult>>? _subscription;
 
-  ConnectivityProvider(this._coreService, this._getUserId) {
+  ConnectivityProvider(
+    this._coreService,
+    this._getUserId, {
+    Future<void> Function()? onSyncComplete,
+  }) : _onSyncComplete = onSyncComplete {
     _init();
   }
 
@@ -98,6 +103,12 @@ class ConnectivityProvider extends ChangeNotifier {
     } finally {
       _isSyncing = false;
       await refreshPendingStatus();
+      // Notify integrating code (e.g. AuthProvider) that sync is complete
+      if (_onSyncComplete != null) {
+        await _onSyncComplete().catchError((e) {
+          debugPrint('[Sync] onSyncComplete error: $e');
+        });
+      }
       notifyListeners();
     }
   }

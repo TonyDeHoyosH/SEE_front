@@ -87,6 +87,7 @@ class MyApp extends StatelessWidget {
           create: (ctx) => ConnectivityProvider(
             coreService,
             () => ctx.read<AuthProvider>().user?.id,
+            onSyncComplete: () => ctx.read<AuthProvider>().refreshAvatarFromCache(),
           ),
         ),
       ],

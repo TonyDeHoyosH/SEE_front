@@ -154,6 +154,19 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Called after connectivity sync to refresh the avatar URL from SharedPrefs.
+  /// This updates the UI to show the newly uploaded remote photo.
+  Future<void> refreshAvatarFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final remoteUrl = prefs.getString('user_avatar');
+      if (remoteUrl != null && _user != null) {
+        _user = _user!.copyWith(avatarUrl: remoteUrl);
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
   Future<void> deleteAvatar() async {
     _isLoading = true;
     _errorMessage = null;

@@ -1112,9 +1112,17 @@ class ApiServiceImpl
 
     try {
       debugPrint('Sincronizando foto de perfil offline desde $localPath...');
-      await updateProfile(avatarImage: file);
+      final updatedUser = await updateProfile(avatarImage: file);
+
+      // Persist new remote URL in SharedPreferences so UI refreshes
+      final prefs = await SharedPreferences.getInstance();
+      if (updatedUser.avatarUrl != null) {
+        await prefs.setString('user_avatar', updatedUser.avatarUrl!);
+      }
+
+      // Mark as synced in local cache
       await LocalDatabaseService.markProfileCacheSynced(userId);
-      debugPrint('Foto de perfil sincronizada exitosamente.');
+      debugPrint('Foto de perfil sincronizada. URL: ${updatedUser.avatarUrl}');
     } catch (e) {
       debugPrint('Error sincronizando foto de perfil: $e');
     }
