@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../providers/crisis_provider.dart';
 import '../../providers/data_provider.dart';
@@ -72,19 +73,16 @@ class _CrisisEmotionScreenState extends State<CrisisEmotionScreen> {
                       'Identifica tu emoción',
                       style: Theme.of(context).textTheme.displaySmall,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Selecciona lo que más se acerca a cómo te sientes ahora',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
+
                     Expanded(
                       child: GridView.builder(
+                        padding: const EdgeInsets.only(top: 12, bottom: 4),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
+                          crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          childAspectRatio: 0.9,
+                          childAspectRatio: 1.1, // ligeramente más ancho que alto
                         ),
                         itemCount: emotions.length,
                         itemBuilder: (context, index) {
@@ -220,34 +218,70 @@ class _EmotionCard extends StatelessWidget {
     required this.onTap,
   });
 
+  String _getImagePath(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('ansiedad')) return 'assets/images/emojis/ansiedad.png';
+    if (lower.contains('depresi')) return 'assets/images/emojis/depresión.png';
+    if (lower.contains('estr')) return 'assets/images/emojis/estrés.png';
+    if (lower.contains('ira') || lower.contains('enojo')) return 'assets/images/emojis/enojo.png';
+    if (lower.contains('p') && lower.contains('nico')) return 'assets/images/emojis/pánico.png';
+    if (lower.contains('tristeza')) return 'assets/images/emojis/tristeza.png';
+    return 'assets/images/emojis/ansiedad.png';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       decoration: isSelected
           ? BoxDecoration(
-              borderRadius: BorderRadius.circular(16.0),
+              borderRadius: BorderRadius.circular(20.0),
               border: Border.all(color: AppTheme.accentPrimary, width: 2),
               color: AppTheme.accentPrimary.withValues(alpha: 0.1),
             )
-          : null,
+          : BoxDecoration(
+              borderRadius: BorderRadius.circular(20.0),
+              border: Border.all(color: Colors.transparent, width: 2),
+            ),
       child: GlassCard(
-        padding: const EdgeInsets.all(8.0),
-        borderRadius: 16.0,
+        padding: const EdgeInsets.all(0),
+        borderRadius: 20.0,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 32),
+              // Emoji PNG ocupa la mayor parte
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16, left: 12, right: 12),
+                  child: Image.asset(
+                    _getImagePath(emotion),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Text(emoji, style: const TextStyle(fontSize: 44)),
+                  ),
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                emotion,
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center,
+              // Nombre emoción
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Text(
+                    emotion,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.nunito(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: isSelected
+                          ? AppTheme.accentPrimary
+                          : AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -256,3 +290,5 @@ class _EmotionCard extends StatelessWidget {
     );
   }
 }
+
+

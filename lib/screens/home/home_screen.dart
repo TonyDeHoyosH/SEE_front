@@ -201,7 +201,7 @@ class _DashboardViewState extends State<_DashboardView> {
                   children: [
                     Expanded(
                       child: _FeelingButton(
-                        emoji: '😊',
+                        imagePath: 'assets/images/emojis/estoy_bien.png',
                         label: 'Estoy bien',
                         onTap: () {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -212,7 +212,6 @@ class _DashboardViewState extends State<_DashboardView> {
                               duration: Duration(seconds: 3),
                             ),
                           );
-                          // Still navigate to victories to keep the flow
                           widget.onNavigateToVictories();
                         },
                       ),
@@ -220,7 +219,7 @@ class _DashboardViewState extends State<_DashboardView> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: _FeelingButton(
-                        emoji: '🆘',
+                        imagePath: 'assets/images/emojis/necesito_ayuda.png',
                         label: 'Necesito ayuda',
                         onTap: () {
                           Navigator.push(
@@ -290,12 +289,12 @@ class _DashboardViewState extends State<_DashboardView> {
 
 
 class _FeelingButton extends StatelessWidget {
-  final String emoji;
+  final String imagePath;
   final String label;
   final VoidCallback onTap;
 
   const _FeelingButton({
-    required this.emoji,
+    required this.imagePath,
     required this.label,
     required this.onTap,
   });
@@ -308,9 +307,13 @@ class _FeelingButton extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            emoji,
-            style: const TextStyle(fontSize: 40),
+          Image.asset(
+            imagePath,
+            width: 112,
+            height: 112,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_not_supported, size: 40),
           ),
           const SizedBox(height: 12),
           Text(

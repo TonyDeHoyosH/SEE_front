@@ -55,6 +55,7 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/images/emojis/
 
 dependency_overrides:
   record_platform_interface: 1.2.0
