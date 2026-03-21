@@ -98,19 +98,6 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
 
       final capsuleId =
           widget.capsule?.id ?? 'cap-${DateTime.now().millisecondsSinceEpoch}';
-      final capsuleData = {
-        'id': capsuleId,
-        'title': title,
-        'content':
-            _capsuleType == 'texto' ? _contentController.text.trim() : '',
-        'emotion_ids': _selectedEmotionIds.join(','),
-        'is_active': widget.capsule?.isActive ?? true ? 1 : 0,
-        'type': _capsuleType,
-        'audio_path': _audioPath,
-        'is_synced': 0,
-        'created_at': widget.capsule?.createdAt?.toIso8601String() ??
-            DateTime.now().toIso8601String(),
-      };
 
       if (widget.capsule != null) {
         await api.updateCapsule(
@@ -121,10 +108,24 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
                   : null,
               emotionIds: _selectedEmotionIds,
             );
-        await LocalDatabaseService.updateCapsule(capsuleData);
-      } else {
-        await LocalDatabaseService.insertCapsule(capsuleData);
+        // Actualizar localmente solo en edición (el backend devuelve datos frescos
+        // que getCapsules() upsertirá la próxima vez que se carguen)
+        final localUpdateData = {
+          'id': capsuleId,
+          'title': title,
+          'content': _capsuleType == 'texto' ? _contentController.text.trim() : '',
+          'emotion_ids': _selectedEmotionIds.join(','),
+          'is_active': widget.capsule?.isActive ?? true ? 1 : 0,
+          'type': _capsuleType,
+          'audio_path': _audioPath,
+          'is_synced': 1,
+          'created_at': widget.capsule?.createdAt?.toIso8601String() ??
+              DateTime.now().toIso8601String(),
+        };
+        await LocalDatabaseService.updateCapsule(localUpdateData);
       }
+      // En creación nueva NO insertamos en local — la API ya la guarda en el backend
+      // y getCapsules() la upsertirá con el ID real la próxima vez que se cargue.
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

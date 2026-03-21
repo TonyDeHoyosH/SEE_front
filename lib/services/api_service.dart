@@ -24,6 +24,15 @@ class ApiServiceImpl
     implements AuthApiService, CoreApiService, ReportsApiService {
   final ApiClient _apiClient = ApiClient();
 
+  String? _resolveMediaUrl(String? path, {bool isAudio = false}) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http')) return path;
+    
+    // Cloudinary Base URL depending on resource type
+    final resourceType = isAudio ? 'video' : 'image';
+    return 'https://res.cloudinary.com/dob7ey43j/$resourceType/upload/$path';
+  }
+
   // ---------------------------------------------------------------------------
   // AUTHENTICATION
   // ---------------------------------------------------------------------------
@@ -64,10 +73,7 @@ class ApiServiceImpl
         nombrePreferido:
             userData['name'] ?? userData['preferredName'] ?? 'Usuario',
         token: token,
-        avatarUrl: userData['avatarUrl'] ??
-            (userData['avatarKey'] != null
-                ? (userData['avatarKey'].toString().startsWith('http') ? userData['avatarKey'] : 'https://awos-see.s3.us-east-1.amazonaws.com/${userData['avatarKey']}')
-                : null),
+        avatarUrl: userData['avatarUrl'] ?? _resolveMediaUrl(userData['avatarKey']?.toString()),
       );
 
       // Save to local storage automatically
@@ -113,10 +119,7 @@ class ApiServiceImpl
         email: email,
         nombrePreferido: nombrePreferido,
         token: token,
-        avatarUrl: data['avatarUrl'] ??
-            (data['avatarKey'] != null
-                ? (data['avatarKey'].toString().startsWith('http') ? data['avatarKey'] : 'https://awos-see.s3.us-east-1.amazonaws.com/${data['avatarKey']}')
-                : null),
+        avatarUrl: data['avatarUrl'] ?? _resolveMediaUrl(data['avatarKey']?.toString()),
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -160,10 +163,7 @@ class ApiServiceImpl
         email: userResponse['email'],
         nombrePreferido: userResponse['name'],
         token: token,
-        avatarUrl: userResponse['avatarUrl'] ??
-            (userResponse['avatarKey'] != null
-                ? (userResponse['avatarKey'].toString().startsWith('http') ? userResponse['avatarKey'] : 'https://awos-see.s3.us-east-1.amazonaws.com/${userResponse['avatarKey']}')
-                : null),
+        avatarUrl: userResponse['avatarUrl'] ?? _resolveMediaUrl(userResponse['avatarKey']?.toString()),
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -348,10 +348,7 @@ class ApiServiceImpl
         String? audioUrl = rawSignedUrl;
 
         if (audioUrl == null && s3Key != null && s3Key.isNotEmpty) {
-          audioUrl =
-              (s3Key.startsWith('http://') || s3Key.startsWith('https://'))
-                  ? s3Key
-                  : 'https://awos-see.s3.us-east-1.amazonaws.com/$s3Key';
+          audioUrl = _resolveMediaUrl(s3Key, isAudio: true);
         }
 
         final backendContent = json['contentText']?.toString();
@@ -596,13 +593,7 @@ class ApiServiceImpl
 
       // Build audio URL from the s3Key returned by the backend
       final createdS3Key = json['s3Key']?.toString();
-      String? createdAudioUrl;
-      if (createdS3Key != null && createdS3Key.isNotEmpty) {
-        createdAudioUrl = (createdS3Key.startsWith('http://') ||
-                createdS3Key.startsWith('https://'))
-            ? createdS3Key
-            : 'https://awos-see.s3.us-east-1.amazonaws.com/$createdS3Key';
-      }
+      String? createdAudioUrl = _resolveMediaUrl(createdS3Key, isAudio: type == 'AUDIO');
 
       // Parse emotion ids from targetEmotions if present
       final rawEmotions = json['targetEmotions'] as List? ?? [];
@@ -764,9 +755,7 @@ class ApiServiceImpl
       }).toList();
 
       final s3Key = json['s3Key']?.toString();
-      final audioUrl = (s3Key != null && s3Key.isNotEmpty)
-          ? (s3Key.startsWith('http') ? s3Key : 'https://awos-see.s3.us-east-1.amazonaws.com/$s3Key')
-          : null;
+      final audioUrl = _resolveMediaUrl(s3Key, isAudio: true);
 
       // Si el backend no devuelve contentText en la respuesta del PATCH,
       // usamos el valor que enviamos nosotros (ya lo tenemos en 'body').
@@ -833,7 +822,7 @@ class ApiServiceImpl
     try {
       final response = await _apiClient.coreDio.post('/crisis', data: {
         'emotionIds': emotionIds,
-        'intensity': intensityLevel,
+        'intensityLevel': intensityLevel,
       });
 
       final crisisId = response.data['crisisId'];
@@ -1069,10 +1058,13 @@ class ApiServiceImpl
       try {
         final localId = crisisMap['id'] as String;
         final intensity = crisisMap['intensity'] as int? ?? 5;
+        final emotionIdsStr = crisisMap['emotion_ids'] as String? ?? '';
+        final emotionIds = emotionIdsStr.split(',').where((e) => e.isNotEmpty).map(int.parse).toList();
         
         // 1. Crear crisis
         final res = await _apiClient.coreDio.post('/crisis', data: {
           'intensityLevel': intensity,
+          'emotionIds': emotionIds,
         }, cancelToken: cancelToken);
         
         final newCrisisId = res.data['crisisId'];
@@ -1104,7 +1096,14 @@ class ApiServiceImpl
         await db.delete('crisis', where: 'id = ?', whereArgs: [localId]);
         debugPrint('Sincronizada crisis $localId exitosamente.');
       } catch (e) {
-        debugPrint('Error sincronizando crisis offline: $e');
+        final localId = crisisMap['id'] as String;
+        debugPrint('==== ERROR SYNC CRISIS ($localId) ====');
+        debugPrint('Error: $e');
+        if (e is DioException) {
+          debugPrint('Status: ${e.response?.statusCode}');
+          debugPrint('Body: ${e.response?.data}');
+        }
+        debugPrint('=============================================');
       }
     }
   }
@@ -1116,13 +1115,12 @@ class ApiServiceImpl
 
     debugPrint('Sincronizando ${pending.length} victorias offline...');
     for (final row in pending) {
+      final rowId = row['id'] as int;
+      final defId = row['definition_id'] as int;
+      final name = row['victory_name'] as String;
+      final dateStr = row['logged_date'] as String;
+      final date = DateTime.tryParse(dateStr) ?? DateTime.now();
       try {
-        final rowId = row['id'] as int;
-        final defId = row['definition_id'] as int;
-        final name = row['victory_name'] as String;
-        final dateStr = row['logged_date'] as String;
-        final date = DateTime.tryParse(dateStr) ?? DateTime.now();
-
         await _apiClient.coreDio.post('/victories', data: {
           'victoryTypeId': defId,
           'occurredAt': date.toIso8601String(),
@@ -1131,7 +1129,13 @@ class ApiServiceImpl
         await LocalDatabaseService.deletePendingVictory(rowId);
         debugPrint('Victoria offline "$name" sincronizada.');
       } catch (e) {
-        debugPrint('Error sincronizando victoria offline: $e');
+        debugPrint('==== ERROR SYNC VICTORIA (defId=$defId, name=$name) ====');
+        debugPrint('Error: $e');
+        if (e is DioException) {
+          debugPrint('Status: ${e.response?.statusCode}');
+          debugPrint('Body: ${e.response?.data}');
+        }
+        debugPrint('========================================================');
       }
     }
   }
@@ -1315,10 +1319,7 @@ class ApiServiceImpl
           clearAvatar ? null : (data['avatarKey'] ?? avatarKey);
       final updatedAvatarUrl = clearAvatar
           ? null
-          : (data['avatarUrl'] ??
-              (finalAvatarKey != null
-                  ? (finalAvatarKey.toString().startsWith('http') ? finalAvatarKey : 'https://awos-see.s3.us-east-1.amazonaws.com/$finalAvatarKey')
-                  : null));
+          : (data['avatarUrl'] ?? _resolveMediaUrl(finalAvatarKey?.toString()));
 
       if (clearAvatar) {
         await prefs.remove('user_avatar');
