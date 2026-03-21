@@ -26,7 +26,7 @@ class _CrisisEmotionScreenState extends State<CrisisEmotionScreen> {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
         final shouldPop = await showDialog<bool>(

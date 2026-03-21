@@ -255,7 +255,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         if (!_loadingList)
                           GestureDetector(
                             onTap: _loadReports,
-                            child: Icon(Icons.refresh_rounded,
+                            child: const Icon(Icons.refresh_rounded,
                                 color: AppTheme.textSecondary, size: 22),
                           ),
                       ],

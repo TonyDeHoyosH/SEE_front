@@ -117,14 +117,15 @@ class _DashboardViewState extends State<_DashboardView> {
 
   Future<Map<String, int>> _loadMetrics() async {
     // Intentar sincronizar crisis locales en segundo plano
+    final apiService = context.read<CoreApiService>();
     try {
-      context.read<CoreApiService>().syncOfflineCrises().catchError((e) => debugPrint('Error en sync background: $e'));
+      apiService.syncOfflineCrises().catchError((e) => debugPrint('Error en sync background: $e'));
     } catch (_) {}
 
     final victories = await LocalDatabaseService.countWeeklyVictories();
     int capsuleCount = 0;
     try {
-      final capsules = await context.read<CoreApiService>().getCapsules();
+      final capsules = await apiService.getCapsules();
       capsuleCount = capsules.where((c) => c.isActive).length;
     } catch (_) {
       capsuleCount = await LocalDatabaseService.countActiveCapsules();
@@ -156,9 +157,9 @@ class _DashboardViewState extends State<_DashboardView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Align(
+              const Align(
                 alignment: Alignment.centerRight,
-                child: const AppDrawerButton(),
+                child: AppDrawerButton(),
               ),
               const SizedBox(height: 28), // 28dp gap
 

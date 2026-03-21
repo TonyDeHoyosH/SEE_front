@@ -66,7 +66,7 @@ class ApiServiceImpl
         token: token,
         avatarUrl: userData['avatarUrl'] ??
             (userData['avatarKey'] != null
-                ? 'https://awos-see.s3.us-east-1.amazonaws.com/${userData['avatarKey']}'
+                ? (userData['avatarKey'].toString().startsWith('http') ? userData['avatarKey'] : 'https://awos-see.s3.us-east-1.amazonaws.com/${userData['avatarKey']}')
                 : null),
       );
 
@@ -115,7 +115,7 @@ class ApiServiceImpl
         token: token,
         avatarUrl: data['avatarUrl'] ??
             (data['avatarKey'] != null
-                ? 'https://awos-see.s3.us-east-1.amazonaws.com/${data['avatarKey']}'
+                ? (data['avatarKey'].toString().startsWith('http') ? data['avatarKey'] : 'https://awos-see.s3.us-east-1.amazonaws.com/${data['avatarKey']}')
                 : null),
       );
 
@@ -162,7 +162,7 @@ class ApiServiceImpl
         token: token,
         avatarUrl: userResponse['avatarUrl'] ??
             (userResponse['avatarKey'] != null
-                ? 'https://awos-see.s3.us-east-1.amazonaws.com/${userResponse['avatarKey']}'
+                ? (userResponse['avatarKey'].toString().startsWith('http') ? userResponse['avatarKey'] : 'https://awos-see.s3.us-east-1.amazonaws.com/${userResponse['avatarKey']}')
                 : null),
       );
 
@@ -498,7 +498,7 @@ class ApiServiceImpl
         // PASO 1: Obtener URL pre-firmada desde el backend
         final fileName = audioFile.path.split('/').last;
         final presignRes =
-            await _apiClient.coreDio.get('/s3/presigned-url', queryParameters: {
+            await _apiClient.coreDio.get('/media/upload-url', queryParameters: {
           'filename': fileName,
           'fileType': 'audio/mp4',
         });
@@ -509,23 +509,46 @@ class ApiServiceImpl
         debugPrint('================================');
 
         final presignData = presignRes.data as Map<String, dynamic>;
-        final uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
+        String uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
+        
+        // CORRECCIÓN: Si el backend por defecto devuelve el endpoint de imágenes,
+        // Cloudinary rechazará el audio. Forzamos el endpoint a 'video' (usado para audio).
+        if (uploadUrl.contains('/image/upload')) {
+          uploadUrl = uploadUrl.replaceAll('/image/upload', '/video/upload');
+        }
+
         // Jaitovich devuelve fileUrl (URL limpia) y uploadUrl (pre-signed S3)
         s3Key = presignData['fileUrl'] ??
             presignData['key'] ??
             presignData['s3Key'];
 
-        // PASO 2: Subir directamente a S3 con PUT (no POST)
-        final fileBytes = await audioFile.readAsBytes();
+        // PASO 2: Subir directamente a Cloudinary con POST
         try {
-          await Dio().put(
+          final fields = <String, dynamic>{};
+          final allowedList = ['api_key', 'timestamp', 'signature', 'folder', 'public_id', 'upload_preset'];
+          presignData.forEach((k, v) {
+            final normalizedKey = k == 'apiKey' ? 'api_key' : k;
+            if (allowedList.contains(normalizedKey)) {
+              fields[normalizedKey] = v;
+            }
+          });
+          
+          if (presignData['key'] != null) {
+            fields['public_id'] = presignData['key'];
+          }
+          
+          fields['file'] = await MultipartFile.fromFile(audioFile.path, filename: fileName);
+
+          final formData = FormData.fromMap(fields);
+
+          final uploadDio = Dio(BaseOptions(
+            connectTimeout: const Duration(seconds: 15),
+            receiveTimeout: const Duration(seconds: 15),
+            sendTimeout: const Duration(seconds: 30),
+          ));
+          await uploadDio.post(
             uploadUrl,
-            data: fileBytes,
-            options: Options(
-              headers: {
-                Headers.contentTypeHeader: 'audio/mp4',
-              },
-            ),
+            data: formData,
           );
         } on DioException catch (s3Error) {
           // Detectar el error específico de token expirado en S3
@@ -645,27 +668,51 @@ class ApiServiceImpl
       if (audioFile != null) {
         final fileName = audioFile.path.split('/').last;
         final presignRes =
-            await _apiClient.coreDio.get('/s3/presigned-url', queryParameters: {
+            await _apiClient.coreDio.get('/media/upload-url', queryParameters: {
           'filename': fileName,
           'fileType': 'audio/mp4',
         });
         final presignData = presignRes.data as Map<String, dynamic>;
-        final uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
-        final newS3Key = presignData['s3Key'] ??
-            presignData['key'] ??
-            presignData['fileUrl'];
+        String uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
 
-        final fileBytes = await audioFile.readAsBytes();
+        // CORRECCIÓN: Forzar el endpoint a 'video' (audio) para Cloudinary
+        if (uploadUrl.contains('/image/upload')) {
+          uploadUrl = uploadUrl.replaceAll('/image/upload', '/video/upload');
+        }
+
+        final newS3Key = presignData['fileUrl'] ??
+            presignData['key'] ??
+            presignData['s3Key'];
+
         try {
-          await Dio().put(
+          final fields = <String, dynamic>{};
+          final allowedList = ['api_key', 'timestamp', 'signature', 'folder', 'public_id', 'upload_preset'];
+          presignData.forEach((k, v) {
+            final normalizedKey = k == 'apiKey' ? 'api_key' : k;
+            if (allowedList.contains(normalizedKey)) {
+              fields[normalizedKey] = v;
+            }
+          });
+
+          if (presignData['key'] != null) {
+            fields['public_id'] = presignData['key'];
+          }
+
+          fields['file'] = await MultipartFile.fromFile(audioFile.path, filename: fileName);
+
+          final formData = FormData.fromMap(fields);
+
+          final uploadDio = Dio(BaseOptions(
+            connectTimeout: const Duration(seconds: 15),
+            receiveTimeout: const Duration(seconds: 15),
+            sendTimeout: const Duration(seconds: 30),
+          ));
+          await uploadDio.post(
             uploadUrl,
-            data: fileBytes,
-            options: Options(
-              headers: {Headers.contentTypeHeader: 'audio/mp4'},
-            ),
+            data: formData,
           );
           body['s3Key'] = newS3Key;
-          debugPrint('==== AUDIO ACTUALIZADO EN S3: $newS3Key ====');
+          debugPrint('==== AUDIO ACTUALIZADO EN CLOUDINARY: $newS3Key ====');
         } on DioException catch (s3Error) {
           final rawBody = s3Error.response?.data?.toString() ?? '';
           if (rawBody.contains('ExpiredToken') || rawBody.contains('expired')) {
@@ -718,7 +765,7 @@ class ApiServiceImpl
 
       final s3Key = json['s3Key']?.toString();
       final audioUrl = (s3Key != null && s3Key.isNotEmpty)
-          ? 'https://awos-see.s3.us-east-1.amazonaws.com/$s3Key'
+          ? (s3Key.startsWith('http') ? s3Key : 'https://awos-see.s3.us-east-1.amazonaws.com/$s3Key')
           : null;
 
       // Si el backend no devuelve contentText en la respuesta del PATCH,
@@ -911,9 +958,6 @@ class ApiServiceImpl
         body['breathingExerciseCompleted'] = breathingExerciseCompleted;
       }
       if (usedCapsuleId != null) body['usedCapsuleId'] = usedCapsuleId;
-      if (finalEvaluationId != null) {
-        body['finalEvaluationId'] = finalEvaluationId;
-      }
 
       debugPrint('[Crisis] PATCH /crisis/$id/progress body: $body');
       await _apiClient.coreDio.patch('/crisis/$id/progress', data: body);
@@ -956,7 +1000,6 @@ class ApiServiceImpl
       final response = await _apiClient.coreDio.put(
         '/crisis/$id/reflection',
         data: {
-          if (triggerDesc != null) 'triggerDesc': triggerDesc,
           if (location != null) 'location': location,
           if (companion != null) 'companion': companion,
           if (substanceUse != null) 'substanceUse': substanceUse,
@@ -1015,7 +1058,8 @@ class ApiServiceImpl
   // ---------------------------------------------------------------------------
   // OFFLINE SYNC
   // ---------------------------------------------------------------------------
-  Future<void> syncOfflineCrises() async {
+  @override
+  Future<void> syncOfflineCrises({CancelToken? cancelToken}) async {
     final unsynced = await LocalDatabaseService.getUnsyncedCrises();
     if (unsynced.isEmpty) return;
 
@@ -1024,15 +1068,12 @@ class ApiServiceImpl
     for (final crisisMap in unsynced) {
       try {
         final localId = crisisMap['id'] as String;
-        final emotionIdsStr = crisisMap['emotion_ids'] as String? ?? '';
-        final emotionIds = emotionIdsStr.split(',').where((e) => e.isNotEmpty).map(int.parse).toList();
         final intensity = crisisMap['intensity'] as int? ?? 5;
         
         // 1. Crear crisis
         final res = await _apiClient.coreDio.post('/crisis', data: {
-          'emotionIds': emotionIds,
-          'intensity': intensity,
-        });
+          'intensityLevel': intensity,
+        }, cancelToken: cancelToken);
         
         final newCrisisId = res.data['crisisId'];
         
@@ -1040,9 +1081,7 @@ class ApiServiceImpl
         final breathingCompleted = crisisMap['breathing_completed'] == 1;
         await _apiClient.coreDio.patch('/crisis/$newCrisisId/progress', data: {
           'breathingExerciseCompleted': breathingCompleted,
-          if (crisisMap['evaluation'] != null && crisisMap['evaluation'].toString().isNotEmpty)
-             'finalEvaluationId': int.tryParse(crisisMap['evaluation'].toString()),
-        });
+        }, cancelToken: cancelToken);
         
         // 3. saveReflection
         final reflectionPending = crisisMap['reflection_pending'] == 1;
@@ -1050,11 +1089,13 @@ class ApiServiceImpl
            await _apiClient.coreDio.put(
              '/crisis/$newCrisisId/reflection',
              data: {
-               if (crisisMap['reflection_trigger'] != null) 'triggerDesc': crisisMap['reflection_trigger'],
                if (crisisMap['reflection_location'] != null) 'location': crisisMap['reflection_location'],
                if (crisisMap['reflection_company'] != null) 'companion': crisisMap['reflection_company'],
                if (crisisMap['reflection_substance'] != null) 'substanceUse': crisisMap['reflection_substance'],
+               if (crisisMap['evaluation'] != null && crisisMap['evaluation'].toString().isNotEmpty)
+                 'finalEvaluationId': int.tryParse(crisisMap['evaluation'].toString()),
              },
+             cancelToken: cancelToken,
            );
         }
         
@@ -1069,7 +1110,7 @@ class ApiServiceImpl
   }
 
   @override
-  Future<void> syncOfflineVictories() async {
+  Future<void> syncOfflineVictories({CancelToken? cancelToken}) async {
     final pending = await LocalDatabaseService.getPendingVictories();
     if (pending.isEmpty) return;
 
@@ -1077,14 +1118,15 @@ class ApiServiceImpl
     for (final row in pending) {
       try {
         final rowId = row['id'] as int;
+        final defId = row['definition_id'] as int;
         final name = row['victory_name'] as String;
         final dateStr = row['logged_date'] as String;
         final date = DateTime.tryParse(dateStr) ?? DateTime.now();
 
         await _apiClient.coreDio.post('/victories', data: {
-          'newCustomVictoryName': name,
+          'victoryTypeId': defId,
           'occurredAt': date.toIso8601String(),
-        });
+        }, cancelToken: cancelToken);
 
         await LocalDatabaseService.deletePendingVictory(rowId);
         debugPrint('Victoria offline "$name" sincronizada.');
@@ -1095,7 +1137,7 @@ class ApiServiceImpl
   }
 
   @override
-  Future<void> syncProfilePhoto(String userId) async {
+  Future<void> syncProfilePhoto(String userId, {CancelToken? cancelToken}) async {
     final cache = await LocalDatabaseService.getProfileCache(userId);
     if (cache == null) return;
     final isSynced = (cache['is_synced'] as int? ?? 1) == 1;
@@ -1112,7 +1154,7 @@ class ApiServiceImpl
 
     try {
       debugPrint('Sincronizando foto de perfil offline desde $localPath...');
-      final updatedUser = await updateProfile(avatarImage: file);
+      final updatedUser = await updateProfile(avatarImage: file, cancelToken: cancelToken);
 
       // Persist new remote URL in SharedPreferences so UI refreshes
       final prefs = await SharedPreferences.getInstance();
@@ -1132,10 +1174,12 @@ class ApiServiceImpl
 
   // ---------------------------------------------------------------------------
   @override
-  Future<Victory> createVictory(String name, DateTime occurredAt) async {
+  Future<Victory> createVictory(String name, DateTime occurredAt, {int? victoryTypeId}) async {
     try {
       final response = await _apiClient.coreDio.post('/victories', data: {
-        'newCustomVictoryName': name,
+        if (victoryTypeId != null) 'victoryTypeId': victoryTypeId,
+        // Eliminado 'newCustomVictoryName' para evitar Error 400 por campos extra en Prisma
+        // 'occurredAt': occurredAt.toIso8601String(), // Validar si el backend permite occurredAt en tiempo real
       });
       return Victory(
         id: response.data['insertedIds']?.first?.toString() ?? 'temp',
@@ -1187,33 +1231,51 @@ class ApiServiceImpl
   Future<User> updateProfile(
       {String? preferredName,
       File? avatarImage,
-      bool clearAvatar = false}) async {
+      bool clearAvatar = false,
+      CancelToken? cancelToken}) async {
     try {
       String? avatarKey;
 
-      // 1. If there's an avatar image, upload it to S3 first
+      // 1. If there's an avatar image, upload it to Cloudinary first
       if (avatarImage != null) {
         final fileName = avatarImage.path.split('/').last;
         final presignRes =
-            await _apiClient.coreDio.get('/s3/presigned-url', queryParameters: {
+            await _apiClient.coreDio.get('/media/upload-url', queryParameters: {
           'filename': fileName,
           'fileType': 'image/jpeg',
-        });
+        }, cancelToken: cancelToken);
 
-        final uploadUrl = presignRes.data['uploadUrl'];
-        avatarKey = presignRes.data['key'];
-
-        final fileBytes = await avatarImage.readAsBytes();
+        final presignData = presignRes.data as Map<String, dynamic>;
+        final uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
+        avatarKey = presignData['fileUrl'] ?? presignData['key'] ?? presignData['s3Key'];
 
         try {
-          await Dio().put(
+          final fields = <String, dynamic>{};
+          final allowedList = ['api_key', 'timestamp', 'signature', 'folder', 'public_id', 'upload_preset'];
+          presignData.forEach((k, v) {
+            final normalizedKey = k == 'apiKey' ? 'api_key' : k;
+            if (allowedList.contains(normalizedKey)) {
+              fields[normalizedKey] = v;
+            }
+          });
+          
+          if (presignData['key'] != null) {
+            fields['public_id'] = presignData['key'];
+          }
+          
+          fields['file'] = await MultipartFile.fromFile(avatarImage.path, filename: fileName);
+
+          final formData = FormData.fromMap(fields);
+
+          final uploadDio = Dio(BaseOptions(
+            connectTimeout: const Duration(seconds: 15),
+            receiveTimeout: const Duration(seconds: 15),
+            sendTimeout: const Duration(seconds: 30),
+          ));
+          await uploadDio.post(
             uploadUrl,
-            data: fileBytes,
-            options: Options(
-              headers: {
-                Headers.contentTypeHeader: 'image/jpeg',
-              },
-            ),
+            data: formData,
+            cancelToken: cancelToken,
           );
         } on DioException catch (s3Error) {
           final rawBody = s3Error.response?.data?.toString() ?? '';
@@ -1237,7 +1299,7 @@ class ApiServiceImpl
       }
 
       final response =
-          await _apiClient.coreDio.put('/users/profile', data: body);
+          await _apiClient.coreDio.put('/users/profile', data: body, cancelToken: cancelToken);
 
       final data = response.data['user'] ?? response.data;
       final prefs = await SharedPreferences.getInstance();
@@ -1255,7 +1317,7 @@ class ApiServiceImpl
           ? null
           : (data['avatarUrl'] ??
               (finalAvatarKey != null
-                  ? 'https://awos-see.s3.us-east-1.amazonaws.com/$finalAvatarKey'
+                  ? (finalAvatarKey.toString().startsWith('http') ? finalAvatarKey : 'https://awos-see.s3.us-east-1.amazonaws.com/$finalAvatarKey')
                   : null));
 
       if (clearAvatar) {

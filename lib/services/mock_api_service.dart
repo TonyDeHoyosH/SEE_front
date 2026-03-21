@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'base_api_service.dart';
 import '../models/user.dart';
@@ -298,22 +299,22 @@ class MockApiService
   }
 
   @override
-  Future<void> syncOfflineCrises() async {
+  Future<void> syncOfflineCrises({CancelToken? cancelToken}) async {
     await Future.delayed(const Duration(milliseconds: 500));
   }
 
   @override
-  Future<void> syncOfflineVictories() async {
+  Future<void> syncOfflineVictories({CancelToken? cancelToken}) async {
     await Future.delayed(const Duration(milliseconds: 200));
   }
 
   @override
-  Future<void> syncProfilePhoto(String userId) async {
+  Future<void> syncProfilePhoto(String userId, {CancelToken? cancelToken}) async {
     await Future.delayed(const Duration(milliseconds: 200));
   }
 
   @override
-  Future<Victory> createVictory(String name, DateTime occurredAt) async {
+  Future<Victory> createVictory(String name, DateTime occurredAt, {int? victoryTypeId}) async {
     await Future.delayed(const Duration(seconds: 1));
 
     final victoryJson = {
@@ -408,7 +409,8 @@ class MockApiService
   Future<User> updateProfile(
       {String? preferredName,
       File? avatarImage,
-      bool clearAvatar = false}) async {
+      bool clearAvatar = false,
+      CancelToken? cancelToken}) async {
     await Future.delayed(const Duration(milliseconds: 800));
     final prefs = await SharedPreferences.getInstance();
     final currentName = prefs.getString('user_nombre') ?? 'Usuario';

@@ -115,7 +115,7 @@ class VictoryProvider extends ChangeNotifier {
 
       try {
         final def = _definitions.firstWhere((d) => d.id == definitionId);
-        await apiService.createVictory(def.name, DateTime.now());
+        await apiService.createVictory(def.name, DateTime.now(), victoryTypeId: definitionId);
       } catch (e) {
         // Offline: queue in pending_victories for later sync
         debugPrint('Victoria sin internet, guardando offline: $e');

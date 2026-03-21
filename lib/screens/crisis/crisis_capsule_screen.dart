@@ -164,12 +164,11 @@ class _CrisisCapsuleScreenState extends State<CrisisCapsuleScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () async {
+                        final crisisProvider = context.read<CrisisProvider>();
                         await _audioPlayer.stop();
-                        final crisisId =
-                            context.read<CrisisProvider>().currentCrisis?.id;
+                        final crisisId = crisisProvider.currentCrisis?.id;
                         if (crisisId != null) {
-                          await context
-                              .read<CrisisProvider>()
+                          await crisisProvider
                               .markCapsuleUsed(crisisId, capsule.id);
                         }
                         if (context.mounted) {

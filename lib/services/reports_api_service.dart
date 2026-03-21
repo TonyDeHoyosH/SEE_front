@@ -34,9 +34,9 @@ class HttpReportsApiService implements ReportsApiService {
 
     // 3. Dio limpio sin interceptores async (evita el cuelgue)
     final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 45),
-      sendTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 90),
+      receiveTimeout: const Duration(seconds: 90),
+      sendTimeout: const Duration(seconds: 90),
       headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json, application/pdf, */*',
@@ -55,7 +55,7 @@ class HttpReportsApiService implements ReportsApiService {
         options: Options(responseType: ResponseType.bytes),
       )
           .timeout(
-        const Duration(seconds: 45),
+        const Duration(seconds: 90),
         onTimeout: () {
           cancelToken.cancel('timeout');
           debugPrint('[ClinicalReport] ⏱ TIMEOUT disparado');

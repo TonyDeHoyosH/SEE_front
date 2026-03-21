@@ -76,17 +76,18 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
 
     try {
       final title = _titleController.text.trim();
+      final api = context.read<CoreApiService>();
 
       if (widget.capsule == null) {
         if (_capsuleType == 'texto') {
-          await context.read<CoreApiService>().createCapsule(
+          await api.createCapsule(
                 title: title,
                 type: 'TEXT',
                 contentText: _contentController.text.trim(),
                 emotionIds: _selectedEmotionIds,
               );
         } else if (_capsuleType == 'audio' && _audioPath != null) {
-          await context.read<CoreApiService>().createCapsule(
+          await api.createCapsule(
                 title: title,
                 type: 'AUDIO',
                 audioFile: File(_audioPath!),
@@ -112,7 +113,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
       };
 
       if (widget.capsule != null) {
-        await context.read<CoreApiService>().updateCapsule(
+        await api.updateCapsule(
               capsuleId,
               title: title,
               contentText: _capsuleType == 'texto'

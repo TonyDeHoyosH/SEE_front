@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../services/base_api_service.dart';
 import '../services/local_database_service.dart';
@@ -12,6 +13,7 @@ class ConnectivityProvider extends ChangeNotifier {
   bool _isOnline = true;
   bool _hasPendingSync = false;
   bool _isSyncing = false;
+  CancelToken? _cancelToken;
   StreamSubscription<List<ConnectivityResult>>? _subscription;
 
   ConnectivityProvider(
@@ -25,6 +27,15 @@ class ConnectivityProvider extends ChangeNotifier {
   bool get isOnline => _isOnline;
   bool get hasPendingSync => _hasPendingSync;
   bool get isSyncing => _isSyncing;
+
+  void cancelSync() {
+    if (_isSyncing && _cancelToken != null) {
+      _cancelToken!.cancel('Cancelado por el usuario');
+      _cancelToken = null;
+      _isSyncing = false;
+      refreshPendingStatus(); // Auto notifies listeners safely
+    }
+  }
 
   Future<void> _init() async {
     // Check current status at startup
@@ -80,36 +91,39 @@ class ConnectivityProvider extends ChangeNotifier {
     if (_isSyncing || !_isOnline) return;
 
     _isSyncing = true;
+    _cancelToken = CancelToken();
     notifyListeners();
 
     try {
       final userId = _getUserId();
 
       await Future.wait([
-        _coreService.syncOfflineCrises().catchError((e) {
+        _coreService.syncOfflineCrises(cancelToken: _cancelToken).catchError((e) {
           debugPrint('[Sync] Crisis error: $e');
           return null;
         }),
-        _coreService.syncOfflineVictories().catchError((e) {
+        _coreService.syncOfflineVictories(cancelToken: _cancelToken).catchError((e) {
           debugPrint('[Sync] Victorias error: $e');
           return null;
         }),
         if (userId != null)
-          _coreService.syncProfilePhoto(userId).catchError((e) {
+          _coreService.syncProfilePhoto(userId, cancelToken: _cancelToken).catchError((e) {
             debugPrint('[Sync] Foto error: $e');
             return null;
           }),
       ]);
     } finally {
-      _isSyncing = false;
-      await refreshPendingStatus();
-      // Notify integrating code (e.g. AuthProvider) that sync is complete
-      if (_onSyncComplete != null) {
-        await _onSyncComplete().catchError((e) {
-          debugPrint('[Sync] onSyncComplete error: $e');
-        });
+      if (_isSyncing) { // Si se canceló ya está en false
+        _isSyncing = false;
+        _cancelToken = null;
+        await refreshPendingStatus();
+        if (_onSyncComplete != null) {
+          await _onSyncComplete!().catchError((e) {
+            debugPrint('[Sync] onSyncComplete error: $e');
+          });
+        }
+        notifyListeners();
       }
-      notifyListeners();
     }
   }
 

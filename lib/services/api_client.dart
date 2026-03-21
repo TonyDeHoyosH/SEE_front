@@ -9,31 +9,34 @@ class ApiClient {
 
   ApiClient() {
     final authBaseUrl =
-        dotenv.env['AUTH_BASE_URL'] ?? 'http://10.0.2.2:3001/api';
+        dotenv.env['AUTH_BASE_URL'] ?? 'https://auth.kikisait0.me/api/auth';
     final coreBaseUrl =
-        dotenv.env['CORE_BASE_URL'] ?? 'http://10.0.2.2:3002/api';
+        dotenv.env['CORE_BASE_URL'] ?? 'https://apisee.kikisait0.me/api';
     final reportsBaseUrl =
-        dotenv.env['REPORTS_BASE_URL'] ?? 'http://10.0.2.2:3003/api';
+        dotenv.env['REPORTS_BASE_URL'] ?? 'https://see-awos-report.onrender.com/api/reports';
 
     // Dio instance for Auth (login/register) - No token required
     authDio = Dio(BaseOptions(
       baseUrl: authBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
     ));
 
     // Dio instance for Core Operations - Token injected automatically
     coreDio = Dio(BaseOptions(
       baseUrl: coreBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
     ));
 
     // Dio instance for Report Service - Token injected automatically
     reportsDio = Dio(BaseOptions(
       baseUrl: reportsBaseUrl,
       connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 25),
+      sendTimeout: const Duration(seconds: 15),
     ));
 
     // Shared auth interceptor for coreDio and reportsDio

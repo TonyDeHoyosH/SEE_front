@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/connectivity_provider.dart';
@@ -68,24 +67,21 @@ class _OfflineBannerState extends State<OfflineBanner> {
         }
 
         final showStatusBar = _showOfflineMessage || _showRestoredMessage;
-        final showSyncBtn =
-            isOnline && (connectivity.hasPendingSync || connectivity.isSyncing);
+        final showSyncBtn = isOnline && connectivity.isSyncing;
 
         if (!showStatusBar && !showSyncBtn) {
           return const SizedBox.shrink();
         }
 
-        // Both can show at the same time
         return Stack(
+          alignment: Alignment.topCenter,
           children: [
             if (showStatusBar)
               _StatusMessageBar(isRestored: _showRestoredMessage),
             if (showSyncBtn)
               Positioned(
-                // Push the button below the status bar height (~50px) if bar is visible
                 top: MediaQuery.of(context).padding.top +
                     (showStatusBar ? 56 : 8),
-                right: 16,
                 child: _SyncButton(connectivity: connectivity),
               ),
           ],
@@ -151,80 +147,13 @@ class _SyncButton extends StatefulWidget {
   State<_SyncButton> createState() => _SyncButtonState();
 }
 
-class _SyncButtonState extends State<_SyncButton>
-    with TickerProviderStateMixin {
-  late AnimationController _rotationController;
-  late AnimationController _bounceController;
-  late Animation<double> _bounceAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat();
-
-    _bounceController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..repeat(reverse: true);
-
-    _bounceAnimation = Tween<double>(begin: 0, end: -6).animate(
-      CurvedAnimation(parent: _bounceController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _rotationController.dispose();
-    _bounceController.dispose();
-    super.dispose();
-  }
-
+class _SyncButtonState extends State<_SyncButton> {
   @override
   Widget build(BuildContext context) {
-    if (widget.connectivity.isSyncing) {
-      return _buildContainer(
-        child: const SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            color: Colors.white,
-          ),
-        ),
-        label: 'Sincronizando...',
-        onTap: null,
-      );
-    }
+    if (!widget.connectivity.isSyncing) return const SizedBox.shrink();
 
-    return AnimatedBuilder(
-      animation: Listenable.merge([_bounceAnimation, _rotationController]),
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _bounceAnimation.value),
-          child: _buildContainer(
-            child: Transform.rotate(
-              angle: _rotationController.value * 2 * pi,
-              child: const Icon(Icons.sync_rounded, color: Colors.white, size: 18),
-            ),
-            label: 'Sincronizar datos',
-            onTap: () => widget.connectivity.syncAll(),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildContainer({
-    required Widget child,
-    required String label,
-    required VoidCallback? onTap,
-  }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: null, // Bloqueado, se cancela vía menú
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -238,14 +167,21 @@ class _SyncButtonState extends State<_SyncButton>
             ),
           ],
         ),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            child,
-            const SizedBox(width: 8),
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 8),
             Text(
-              label,
-              style: const TextStyle(
+              'Sincronizando...',
+              style: TextStyle(
                 color: Colors.white,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

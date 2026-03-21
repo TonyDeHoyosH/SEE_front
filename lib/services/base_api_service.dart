@@ -7,6 +7,7 @@ import '../models/crisis.dart';
 import '../models/victory.dart';
 import '../models/dashboard_data.dart';
 import 'dart:io';
+import 'package:dio/dio.dart';
 
 abstract class AuthApiService {
   Future<User> login(String email, String password);
@@ -62,16 +63,16 @@ abstract class CoreApiService {
   });
   Future<List<Crisis>> getMyCrises();
 
-  Future<void> syncOfflineCrises();
-  Future<void> syncOfflineVictories();
-  Future<void> syncProfilePhoto(String userId);
+  Future<void> syncOfflineCrises({CancelToken? cancelToken});
+  Future<void> syncOfflineVictories({CancelToken? cancelToken});
+  Future<void> syncProfilePhoto(String userId, {CancelToken? cancelToken});
 
-  Future<Victory> createVictory(String name, DateTime occurredAt);
+  Future<Victory> createVictory(String name, DateTime occurredAt, {int? victoryTypeId});
   Future<List<Victory>> getMyVictories();
   Future<void> deleteVictoryType(int id);
 
   Future<User> updateProfile(
-      {String? preferredName, File? avatarImage, bool clearAvatar = false});
+      {String? preferredName, File? avatarImage, bool clearAvatar = false, CancelToken? cancelToken});
   Future<void> sendTelemetrySnapshot(String googleAccessToken);
 }
 

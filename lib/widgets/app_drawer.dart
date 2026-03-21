@@ -4,18 +4,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../config/theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/victory_provider.dart';
 import '../screens/auth/login_screen.dart';
 import 'privacy_policy_dialog.dart';
 import 'terms_conditions_dialog.dart';
+import '../providers/connectivity_provider.dart';
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final connectivity = context.watch<ConnectivityProvider>();
     final user = authProvider.user;
 
     return Drawer(
@@ -37,15 +40,7 @@ class AppDrawer extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
-                  onLongPress: () => _showAvatarOptions(context, authProvider),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Hiciste click corto en la foto'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
+                  onTap: () => _showAvatarOptions(context, authProvider),
                   child: Stack(
                     alignment: Alignment.bottomRight,
                     children: [
@@ -61,39 +56,42 @@ class AppDrawer extends StatelessWidget {
                         ),
                         child: ClipOval(
                           child: user?.avatarUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl:
-                                      '${user!.avatarUrl!}?v=${DateTime.now().millisecondsSinceEpoch}',
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) =>
-                                      const DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      gradient: AppTheme.primaryGradient,
-                                    ),
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                  Colors.white),
+                              ? (user!.avatarUrl!.startsWith('file://')
+                                  ? Image.file(
+                                      File(user!.avatarUrl!.replaceFirst('file://', '')),
+                                      fit: BoxFit.cover,
+                                      width: 64,
+                                      height: 64,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        debugPrint('==== ERROR LOADING LOCAL AVATAR ====');
+                                        return _avatarFallback(user.nombrePreferido);
+                                      },
+                                    )
+                                  : CachedNetworkImage(
+                                      imageUrl:
+                                          '${user!.avatarUrl!}?v=${DateTime.now().millisecondsSinceEpoch}',
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) =>
+                                          const DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          gradient: AppTheme.primaryGradient,
+                                        ),
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                  errorWidget: (context, url, error) {
-                                    debugPrint(
-                                        '==== ERROR LOADING AVATAR ====');
-                                    debugPrint('URL: $url');
-                                    debugPrint('Error: $error');
-                                    debugPrint(
-                                        '==============================');
-                                    return _avatarFallback(
-                                        user.nombrePreferido);
-                                  },
-                                )
+                                      errorWidget: (context, url, error) {
+                                        debugPrint('==== ERROR LOADING AVATAR ====');
+                                        return _avatarFallback(user.nombrePreferido);
+                                      },
+                                    ))
                               : DecoratedBox(
                                   decoration: const BoxDecoration(
                                     gradient: AppTheme.primaryGradient,
@@ -174,6 +172,53 @@ class AppDrawer extends StatelessWidget {
           ),
           const Divider(),
           ListTile(
+            leading: connectivity.isSyncing
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Badge(
+                    isLabelVisible: connectivity.hasPendingSync,
+                    label: const Text('1', style: TextStyle(fontSize: 10)),
+                    backgroundColor: AppTheme.errorRed,
+                    child: Icon(
+                      Icons.sync_rounded,
+                      color: connectivity.hasPendingSync
+                          ? AppTheme.accentPrimary
+                          : AppTheme.textSecondary.withValues(alpha: 0.5),
+                    ),
+                  ),
+            title: Text(
+              connectivity.isSyncing
+                  ? 'Sincronizando...'
+                  : (connectivity.hasPendingSync ? 'Sincronizar datos pendientes' : 'Datos sincronizados'),
+              style: GoogleFonts.nunito(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: connectivity.hasPendingSync || connectivity.isSyncing
+                    ? AppTheme.textPrimary
+                    : AppTheme.textSecondary.withValues(alpha: 0.5),
+              ),
+            ),
+            trailing: connectivity.isSyncing
+                ? IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppTheme.errorRed),
+                    onPressed: () {
+                      connectivity.cancelSync();
+                    },
+                    tooltip: 'Cancelar sincronización',
+                  )
+                : null,
+            onTap: (connectivity.hasPendingSync && !connectivity.isSyncing)
+                ? () {
+                    connectivity.syncAll();
+                  }
+                : null,
+            enabled: connectivity.hasPendingSync || connectivity.isSyncing,
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.delete_forever_rounded,
                 color: AppTheme.errorRed),
             title: Text(
@@ -185,9 +230,14 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
             onTap: () {
-              Navigator.pop(context);
+              final sm = ScaffoldMessenger.of(context);
+              final victoryProvider = context.read<VictoryProvider>();
+              final navigator = Navigator.of(context, rootNavigator: true);
+
+              Navigator.pop(context); // Cierra el primer drawer
+              
               showDialog(
-                context: context,
+                context: navigator.context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Eliminar cuenta'),
                   content: const Text(
@@ -203,12 +253,7 @@ class AppDrawer extends StatelessWidget {
                         backgroundColor: AppTheme.errorRed,
                       ),
                       onPressed: () async {
-                        final sm = ScaffoldMessenger.of(context);
-                        final victoryProvider = context.read<VictoryProvider>();
-                        final navigator =
-                            Navigator.of(context, rootNavigator: true);
-
-                        Navigator.pop(ctx);
+                        Navigator.pop(ctx); // Cierra el dialog
                         try {
                           await authProvider.deleteAccount();
                           sm.showSnackBar(
@@ -370,6 +415,26 @@ class AppDrawer extends StatelessWidget {
 
   Future<void> _pickAndUploadAvatar(
       BuildContext context, AuthProvider authProvider) async {
+    
+    // Request permission explicitly to see the system prompt
+    Map<Permission, PermissionStatus> statuses;
+    if (Platform.isAndroid) {
+      statuses = await [Permission.photos, Permission.storage].request();
+    } else {
+      statuses = await [Permission.photos].request();
+    }
+
+    final isPermanentlyDenied = statuses.values.any((s) => s.isPermanentlyDenied);
+
+    if (isPermanentlyDenied) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permisos denegados permanentemente, abre Ajustes para cambiar foto.')),
+      );
+      await openAppSettings();
+      return;
+    }
+
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
@@ -400,9 +465,10 @@ class AppDrawerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final connectivity = context.watch<ConnectivityProvider>();
     final user = authProvider.user;
 
-    return GestureDetector(
+    Widget button = GestureDetector(
       onTap: () {
         ScaffoldState? targetScaffold;
         context.visitAncestorElements((element) {
@@ -434,24 +500,42 @@ class AppDrawerButton extends StatelessWidget {
         ),
         child: ClipOval(
           child: user?.avatarUrl != null
-              ? CachedNetworkImage(
-                  imageUrl:
-                      '${user!.avatarUrl!}?v=${DateTime.now().millisecondsSinceEpoch}',
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) =>
-                      const CircularProgressIndicator(
-                    strokeWidth: 2,
-                  ),
-                  errorWidget: (context, url, error) => _FallbackAvatar(
-                    name: user.nombrePreferido,
-                  ),
-                )
+              ? (user!.avatarUrl!.startsWith('file://')
+                  ? Image.file(
+                      File(user!.avatarUrl!.replaceFirst('file://', '')),
+                      fit: BoxFit.cover,
+                      width: 40,
+                      height: 40,
+                      errorBuilder: (context, error, stackTrace) => _FallbackAvatar(name: user.nombrePreferido),
+                    )
+                  : CachedNetworkImage(
+                      imageUrl:
+                          '${user!.avatarUrl!}?v=${DateTime.now().millisecondsSinceEpoch}',
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) =>
+                          const CircularProgressIndicator(strokeWidth: 2),
+                      errorWidget: (context, url, error) => _FallbackAvatar(
+                        name: user.nombrePreferido,
+                      ),
+                    ))
               : _FallbackAvatar(
                   name: user?.nombrePreferido ?? 'U',
                 ),
         ),
       ),
     );
+
+    if (connectivity.hasPendingSync) {
+      return Badge(
+        label: const Text('1', style: TextStyle(fontSize: 10)),
+        backgroundColor: AppTheme.errorRed,
+        alignment: Alignment.topRight,
+        offset: const Offset(-2, 2),
+        child: button,
+      );
+    }
+    
+    return button;
   }
 }
 
