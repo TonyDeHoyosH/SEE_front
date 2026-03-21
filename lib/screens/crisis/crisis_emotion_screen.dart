@@ -164,6 +164,7 @@ class _CrisisEmotionScreenState extends State<CrisisEmotionScreen> {
     if (lower.contains('tristeza')) return '😢';
     if (lower.contains('ira')) return '😠';
     if (lower.contains('vacío') || lower.contains('vacio')) return '😶';
+    if (lower.contains('vergüenza') || lower.contains('verguenza')) return '😳';
     return '😐';
   }
 
@@ -221,10 +222,10 @@ class _EmotionCard extends StatelessWidget {
   String _getImagePath(String name) {
     final lower = name.toLowerCase();
     if (lower.contains('ansiedad')) return 'assets/images/emojis/ansiedad.png';
-    if (lower.contains('depresi')) return 'assets/images/emojis/depresión.png';
-    if (lower.contains('estr')) return 'assets/images/emojis/estrés.png';
+    if (lower.contains('depresi') || lower.contains('vacío') || lower.contains('vacio')) return 'assets/images/emojis/depresión.png';
+    if (lower.contains('estr') || lower.contains('vergüenza') || lower.contains('verguenza')) return 'assets/images/emojis/estrés.png';
     if (lower.contains('ira') || lower.contains('enojo')) return 'assets/images/emojis/enojo.png';
-    if (lower.contains('p') && lower.contains('nico')) return 'assets/images/emojis/pánico.png';
+    if (lower.contains('p') && lower.contains('nico') || lower.contains('miedo')) return 'assets/images/emojis/pánico.png';
     if (lower.contains('tristeza')) return 'assets/images/emojis/tristeza.png';
     return 'assets/images/emojis/ansiedad.png';
   }
