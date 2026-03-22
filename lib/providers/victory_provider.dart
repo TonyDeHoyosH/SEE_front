@@ -115,10 +115,12 @@ class VictoryProvider extends ChangeNotifier {
 
       try {
         final def = _definitions.firstWhere((d) => d.id == definitionId);
+        debugPrint('[Victory] Intentando crear victoria: ${def.name}');
         await apiService.createVictory(def.name, DateTime.now(), victoryTypeId: definitionId);
+        debugPrint('[Victory] Victoria creada exitosamente en servidor.');
       } catch (e) {
         // Offline: queue in pending_victories for later sync
-        debugPrint('Victoria sin internet, guardando offline: $e');
+        debugPrint('[Victory] Error o Sin internet, guardando offline: $e');
         try {
           final def = _definitions.firstWhere((d) => d.id == definitionId);
           await LocalDatabaseService.insertPendingVictory(
@@ -126,7 +128,10 @@ class VictoryProvider extends ChangeNotifier {
             victoryName: def.name,
             loggedDate: DateTime.now().toIso8601String(),
           );
-        } catch (_) {}
+          debugPrint('[Victory] Victoria guardada en cola de pendientes (SQLite).');
+        } catch (dbError) {
+          debugPrint('[Victory] Error guardando en SQLite: $dbError');
+        }
       }
     }
     await _refreshHistory();

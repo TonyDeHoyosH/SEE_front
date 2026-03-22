@@ -947,6 +947,9 @@ class ApiServiceImpl
         body['breathingExerciseCompleted'] = breathingExerciseCompleted;
       }
       if (usedCapsuleId != null) body['usedCapsuleId'] = usedCapsuleId;
+      if (finalEvaluationId != null) {
+        body['finalEvaluationId'] = finalEvaluationId;
+      }
 
       debugPrint('[Crisis] PATCH /crisis/$id/progress body: $body');
       await _apiClient.coreDio.patch('/crisis/$id/progress', data: body);
@@ -989,6 +992,7 @@ class ApiServiceImpl
       final response = await _apiClient.coreDio.put(
         '/crisis/$id/reflection',
         data: {
+          if (triggerDesc != null) 'triggerDesc': triggerDesc,
           if (location != null) 'location': location,
           if (companion != null) 'companion': companion,
           if (substanceUse != null) 'substanceUse': substanceUse,
@@ -1073,6 +1077,8 @@ class ApiServiceImpl
         final breathingCompleted = crisisMap['breathing_completed'] == 1;
         await _apiClient.coreDio.patch('/crisis/$newCrisisId/progress', data: {
           'breathingExerciseCompleted': breathingCompleted,
+          if (crisisMap['evaluation'] != null && crisisMap['evaluation'].toString().isNotEmpty)
+             'finalEvaluationId': int.tryParse(crisisMap['evaluation'].toString()),
         }, cancelToken: cancelToken);
         
         // 3. saveReflection
@@ -1081,6 +1087,7 @@ class ApiServiceImpl
            await _apiClient.coreDio.put(
              '/crisis/$newCrisisId/reflection',
              data: {
+               if (crisisMap['reflection_trigger'] != null) 'triggerDesc': crisisMap['reflection_trigger'],
                if (crisisMap['reflection_location'] != null) 'location': crisisMap['reflection_location'],
                if (crisisMap['reflection_company'] != null) 'companion': crisisMap['reflection_company'],
                if (crisisMap['reflection_substance'] != null) 'substanceUse': crisisMap['reflection_substance'],
@@ -1111,6 +1118,7 @@ class ApiServiceImpl
   @override
   Future<void> syncOfflineVictories({CancelToken? cancelToken}) async {
     final pending = await LocalDatabaseService.getPendingVictories();
+    debugPrint('[Sync] Revisando victorias offline pendientes: ${pending.length}');
     if (pending.isEmpty) return;
 
     debugPrint('Sincronizando ${pending.length} victorias offline...');
@@ -1118,12 +1126,9 @@ class ApiServiceImpl
       final rowId = row['id'] as int;
       final defId = row['definition_id'] as int;
       final name = row['victory_name'] as String;
-      final dateStr = row['logged_date'] as String;
-      final date = DateTime.tryParse(dateStr) ?? DateTime.now();
       try {
         await _apiClient.coreDio.post('/victories', data: {
           'victoryTypeId': defId,
-          'occurredAt': date.toIso8601String(),
         }, cancelToken: cancelToken);
 
         await LocalDatabaseService.deletePendingVictory(rowId);
@@ -1190,9 +1195,9 @@ class ApiServiceImpl
         name: name,
         occurredAt: occurredAt,
       );
-    } catch (_) {
-      // Fallback
-      return Victory(id: 'mock-v-1', name: name, occurredAt: occurredAt);
+    } catch (e) {
+      debugPrint('Error en createVictory: $e');
+      rethrow;
     }
   }
 
