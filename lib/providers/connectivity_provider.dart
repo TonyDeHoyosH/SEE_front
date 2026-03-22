@@ -52,9 +52,13 @@ class ConnectivityProvider extends ChangeNotifier {
       _isOnline = _resultsHaveConnection(results);
 
       if (!wasOnline && _isOnline) {
-        // Just came back online – auto-sync all pending data
-        debugPrint('[Connectivity] Conexión restaurada, sincronizando...');
-        await syncAll();
+        // Just came back online – wait a moment for the interface to stabilize
+        debugPrint('[Connectivity] Conexión restaurada. Esperando estabilidad...');
+        await Future.delayed(const Duration(seconds: 2));
+        if (_isOnline) {
+          debugPrint('[Connectivity] Sincronizando pendientes...');
+          await syncAll();
+        }
       }
 
       notifyListeners();

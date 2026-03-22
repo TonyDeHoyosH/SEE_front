@@ -1118,7 +1118,6 @@ class ApiServiceImpl
   @override
   Future<void> syncOfflineVictories({CancelToken? cancelToken}) async {
     final pending = await LocalDatabaseService.getPendingVictories();
-    debugPrint('[Sync] Revisando victorias offline pendientes: ${pending.length}');
     if (pending.isEmpty) return;
 
     debugPrint('Sincronizando ${pending.length} victorias offline...');
