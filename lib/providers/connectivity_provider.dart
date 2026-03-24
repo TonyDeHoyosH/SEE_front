@@ -13,6 +13,7 @@ class ConnectivityProvider extends ChangeNotifier {
   bool _isOnline = true;
   bool _hasPendingSync = false;
   bool _isSyncing = false;
+  Future<void>? _activeSyncFuture;
   CancelToken? _cancelToken;
   StreamSubscription<List<ConnectivityResult>>? _subscription;
 
@@ -92,12 +93,23 @@ class ConnectivityProvider extends ChangeNotifier {
 
   /// Manually triggered sync (button press) or auto-sync on reconnect.
   Future<void> syncAll() async {
-    if (_isSyncing || !_isOnline) return;
+    if (!_isOnline) return;
+
+    if (_isSyncing && _activeSyncFuture != null) {
+      await _activeSyncFuture;
+      return;
+    }
 
     _isSyncing = true;
     _cancelToken = CancelToken();
     notifyListeners();
 
+    _activeSyncFuture = _performSync();
+    await _activeSyncFuture;
+    _activeSyncFuture = null;
+  }
+
+  Future<void> _performSync() async {
     try {
       final userId = _getUserId();
 

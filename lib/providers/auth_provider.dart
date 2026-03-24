@@ -7,6 +7,45 @@ import '../models/user.dart';
 import '../services/base_api_service.dart';
 import '../services/local_database_service.dart';
 
+String _friendlyError(dynamic e) {
+  final raw = e.toString().toLowerCase();
+  if (raw.contains('socketexception') ||
+      raw.contains('connection refused') ||
+      raw.contains('network is unreachable') ||
+      raw.contains('failed host lookup')) {
+    return 'Sin conexión a internet. Verifica tu red e intenta de nuevo.';
+  }
+  if (raw.contains('connection timed out') ||
+      raw.contains('timeout') ||
+      raw.contains('timedout')) {
+    return 'El servidor tardó demasiado en responder. Intenta en unos segundos.';
+  }
+  if (raw.contains('401') || raw.contains('credenciales') || raw.contains('invalid credentials') || raw.contains('incorrect password') || raw.contains('contraseña')) {
+    return 'Correo o contraseña incorrectos. Verifica tus datos.';
+  }
+  if (raw.contains('409') || raw.contains('already exists') || raw.contains('ya existe') || raw.contains('duplicate') || raw.contains('email already')) {
+    return 'Este correo ya está registrado. Intenta iniciar sesión.';
+  }
+  if (raw.contains('400')) {
+    return 'Los datos ingresados no son válidos. Verifica el formulario.';
+  }
+  if (raw.contains('500') || raw.contains('server error') || raw.contains('internal')) {
+    return 'Error en el servidor. Por favor intenta más tarde.';
+  }
+  if (raw.contains('403')) {
+    return 'No tienes permiso para realizar esta acción.';
+  }
+  if (raw.contains('404')) {
+    return 'No encontramos tu cuenta. Verifica el correo ingresado.';
+  }
+  // Fallback: clean up internal prefixes
+  return e.toString()
+      .replaceFirst('Exception: ', '')
+      .replaceFirst('DioException: ', '')
+      .replaceFirst('[connection error]: ', '');
+}
+
+
 class AuthProvider extends ChangeNotifier {
   final AuthApiService _authService;
   final CoreApiService _coreService;
@@ -29,10 +68,16 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _authService.login(email, password);
       await _saveSession(_user!);
+      
+      // Fetch full profile (including avatarUrl) after login
+      final fullProfile = await _coreService.getMyProfile();
+      _user = fullProfile;
+      await _saveSession(_user!);
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = _friendlyError(e);
       _isLoading = false;
       notifyListeners();
     }
@@ -50,10 +95,16 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _authService.register(email, password, nombrePreferido);
       await _saveSession(_user!);
+      
+      // Fetch full profile (including avatarUrl) after registration
+      final fullProfile = await _coreService.getMyProfile();
+      _user = fullProfile;
+      await _saveSession(_user!);
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = _friendlyError(e);
       _isLoading = false;
       notifyListeners();
     }
@@ -95,8 +146,14 @@ class AuthProvider extends ChangeNotifier {
         accessToken,
       );
 
-      // Guardar también la sesión global
+      // Guardar también la sesión global inicial
       await _saveSession(_user!);
+
+      // Fetch full profile (including avatarUrl) after Google login
+      final fullProfile = await _coreService.getMyProfile();
+      _user = fullProfile;
+      await _saveSession(_user!);
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -107,7 +164,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      _errorMessage = 'Error en inicio de sesión con Google: $e';
+      _errorMessage = 'Error en inicio de sesión con Google: ${_friendlyError(e)}';
       _isLoading = false;
       notifyListeners();
     }
@@ -209,17 +266,20 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveSession(User user) async {
+  Future<void> _saveSession(User user, {bool clearAvatar = false}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', user.token);
     await prefs.setString('user_id', user.id);
     await prefs.setString('user_email', user.email);
     await prefs.setString('user_nombre', user.nombrePreferido);
     if (user.avatarUrl != null) {
+      // Server returned a URL — always save it
       await prefs.setString('user_avatar', user.avatarUrl!);
-    } else {
+    } else if (clearAvatar) {
+      // Explicit wipe (delete account / logout)
       await prefs.remove('user_avatar');
     }
+    // Otherwise: login returned no avatar — keep whatever was already stored
   }
 
   Future<void> _clearSession() async {

@@ -432,4 +432,16 @@ class MockApiService
     await Future.delayed(const Duration(milliseconds: 800));
     return 'https://www.w3.org/WAI/WCAG21/Techniques/pdf/PDF1';
   }
+
+  @override
+  Future<User> getMyProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    return User(
+      id: prefs.getString('user_id') ?? 'uuid-user-123',
+      email: prefs.getString('user_email') ?? 'mock@see.app',
+      nombrePreferido: prefs.getString('user_nombre') ?? 'Usuario',
+      token: prefs.getString('auth_token') ?? 'mock.token',
+      avatarUrl: prefs.getString('user_avatar'),
+    );
+  }
 }

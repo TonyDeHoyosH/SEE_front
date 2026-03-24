@@ -1125,10 +1125,18 @@ class ApiServiceImpl
       final rowId = row['id'] as int;
       final defId = row['definition_id'] as int;
       final name = row['victory_name'] as String;
+      final loggedDate = row['logged_date'] as String?;
       try {
-        await _apiClient.coreDio.post('/victories', data: {
+        final payload = {
           'victoryTypeId': defId,
-        }, cancelToken: cancelToken);
+          if (loggedDate != null) 'occurredAt': loggedDate,
+        };
+        
+        debugPrint('==== SINCRONIZANDO VICTORIA OFFLINE ====');
+        debugPrint('Payload: $payload');
+        debugPrint('========================================');
+        
+        await _apiClient.coreDio.post('/victories', data: payload, cancelToken: cancelToken);
 
         await LocalDatabaseService.deletePendingVictory(rowId);
         debugPrint('Victoria offline "$name" sincronizada.');
@@ -1184,11 +1192,17 @@ class ApiServiceImpl
   @override
   Future<Victory> createVictory(String name, DateTime occurredAt, {int? victoryTypeId}) async {
     try {
-      final response = await _apiClient.coreDio.post('/victories', data: {
-        if (victoryTypeId != null) 'victoryTypeId': victoryTypeId,
-        // Eliminado 'newCustomVictoryName' para evitar Error 400 por campos extra en Prisma
-        // 'occurredAt': occurredAt.toIso8601String(), // Validar si el backend permite occurredAt en tiempo real
-      });
+      final payload = {
+        if (victoryTypeId != null) 'victoryTypeIds': [victoryTypeId],
+        'newCustomVictoryName': name,
+        // 'occurredAt': occurredAt.toIso8601String(), // Validar backend
+      };
+      
+      debugPrint('==== ENVIANDO VICTORIA NUEVA ====');
+      debugPrint('Payload: $payload'); 
+      debugPrint('=================================');
+      
+      final response = await _apiClient.coreDio.post('/victories', data: payload);
       return Victory(
         id: response.data['insertedIds']?.first?.toString() ?? 'temp',
         name: name,
@@ -1235,6 +1249,25 @@ class ApiServiceImpl
   // ---------------------------------------------------------------------------
   // PROFILE & REPORTS
   // ---------------------------------------------------------------------------
+
+  @override
+  Future<User> getMyProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final response = await _apiClient.coreDio.get('/users/profile');
+    final data = response.data['user'] ?? response.data;
+    final avatarUrl = data['avatarUrl'] as String?;
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      await prefs.setString('user_avatar', avatarUrl);
+    }
+    return User(
+      id: data['id']?.toString() ?? prefs.getString('user_id') ?? '',
+      email: data['email'] ?? prefs.getString('user_email') ?? '',
+      nombrePreferido: data['preferredName'] ?? data['name'] ?? prefs.getString('user_nombre') ?? '',
+      token: prefs.getString('auth_token') ?? '',
+      avatarUrl: avatarUrl,
+    );
+  }
+
   @override
   Future<User> updateProfile(
       {String? preferredName,

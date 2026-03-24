@@ -73,6 +73,7 @@ abstract class CoreApiService {
 
   Future<User> updateProfile(
       {String? preferredName, File? avatarImage, bool clearAvatar = false, CancelToken? cancelToken});
+  Future<User> getMyProfile();  // Fetches up-to-date user data (avatarUrl) from server
   Future<void> sendTelemetrySnapshot(String googleAccessToken);
 }
 

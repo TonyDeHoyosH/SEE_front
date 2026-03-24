@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart';
 
 class LocalDatabaseService {
   static Database? _database;
@@ -16,7 +17,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE crisis (
@@ -52,7 +53,8 @@ class LocalDatabaseService {
         await db.execute('''
           CREATE TABLE victory_definitions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
+            name TEXT NOT NULL,
+            backend_id INTEGER
           )
         ''');
         await db.execute('''
@@ -167,6 +169,10 @@ class LocalDatabaseService {
               is_synced INTEGER NOT NULL DEFAULT 0
             )
           ''');
+        }
+        if (oldVersion < 9) {
+          // Add backend_id column to victory_definitions
+          await db.execute('ALTER TABLE victory_definitions ADD COLUMN backend_id INTEGER');
         }
       },
     );
@@ -434,6 +440,46 @@ class LocalDatabaseService {
     );
   }
 
+  /// Sincroniza las definiciones locales con los tipos oficiales del backend (por nombre).
+  static Future<void> updateVictoryDefinitionsFromBackend(
+      List<dynamic> backendTypes) async {
+    final db = await database;
+    debugPrint('DB: Sincronizando ${backendTypes.length} tipos de victoria desde el backend...');
+
+    for (var type in backendTypes) {
+      final int bId = type.id;
+      final String bName = type.name;
+
+      // Intentar encontrar por nombre
+      final rows = await db.query(
+        'victory_definitions',
+        where: 'name = ?',
+        whereArgs: [bName],
+      );
+
+      if (rows.isNotEmpty) {
+        final localId = rows.first['id'];
+        final currentBackendId = rows.first['backend_id'];
+        
+        if (currentBackendId != bId) {
+          await db.update(
+            'victory_definitions',
+            {'backend_id': bId},
+            where: 'id = ?',
+            whereArgs: [localId],
+          );
+          debugPrint('DB: Mapeado "$bName" (local $localId) -> backend $bId');
+        }
+      } else {
+        final newId = await db.insert('victory_definitions', {
+          'name': bName,
+          'backend_id': bId,
+        });
+        debugPrint('DB: Creado nuevo tipo "$bName" con backend ID $bId (local $newId)');
+      }
+    }
+  }
+
   static Future<int> deleteVictoryDefinition(int id) async {
     final db = await database;
     await db
@@ -476,7 +522,7 @@ class LocalDatabaseService {
   static Future<List<Map<String, dynamic>>> getVictoryHistory() async {
     final db = await database;
     return await db.rawQuery('''
-      SELECT vl.id, vd.name, vl.logged_date
+      SELECT vl.id, vd.name, vl.logged_date, vd.backend_id
       FROM victory_logs vl
       INNER JOIN victory_definitions vd ON vd.id = vl.definition_id
       ORDER BY vl.logged_date DESC, vl.id DESC

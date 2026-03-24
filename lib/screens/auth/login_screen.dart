@@ -70,10 +70,24 @@ class _LoginScreenState extends State<LoginScreen>
     if (!mounted) return;
 
     if (authProvider.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage!),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(authProvider.errorMessage!, style: const TextStyle(fontSize: 14))),
+            ],
+          ),
           backgroundColor: AppTheme.errorRed,
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+          ),
         ),
       );
     } else if (authProvider.isAuthenticated) {

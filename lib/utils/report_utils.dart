@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:open_filex/open_filex.dart';
+import '../providers/connectivity_provider.dart';
 import '../services/base_api_service.dart';
 
 class ReportUtils {
@@ -51,8 +52,13 @@ class ReportUtils {
     );
 
     final reportsService = context.read<ReportsApiService>();
+    final connectivity = context.read<ConnectivityProvider>();
 
     try {
+      if (connectivity.hasPendingSync || connectivity.isSyncing) {
+        await connectivity.syncAll();
+      }
+
       final result = await reportsService.getReportUrl();
 
       timer?.cancel();

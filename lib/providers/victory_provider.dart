@@ -5,8 +5,9 @@ import '../services/base_api_service.dart';
 class VictoryDefinition {
   final int id;
   final String name;
+  final int? backendId;
 
-  VictoryDefinition({required this.id, required this.name});
+  VictoryDefinition({required this.id, required this.name, this.backendId});
 }
 
 class VictoryLog {
@@ -56,8 +57,28 @@ class VictoryProvider extends ChangeNotifier {
         .map((d) => VictoryDefinition(
               id: d['id'] as int,
               name: d['name'] as String,
+              backendId: d['backend_id'] as int?,
             ))
         .toList();
+
+    // 2. Fetch official types from backend and sync them locally
+    try {
+      final backendTypes = await apiService.getVictoryTypes();
+      if (backendTypes.isNotEmpty) {
+        await LocalDatabaseService.updateVictoryDefinitionsFromBackend(backendTypes);
+        // Reload definitions after sync
+        final updatedDefsRaw = await LocalDatabaseService.getAllVictoryDefinitions();
+        _definitions = updatedDefsRaw
+            .map((d) => VictoryDefinition(
+                  id: d['id'] as int,
+                  name: d['name'] as String,
+                  backendId: d['backend_id'] as int?,
+                ))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error syncing victory types from backend: $e');
+    }
 
     _todayChecked = await LocalDatabaseService.getTodayLoggedIds();
 
@@ -115,13 +136,18 @@ class VictoryProvider extends ChangeNotifier {
 
       try {
         final def = _definitions.firstWhere((d) => d.id == definitionId);
-        await apiService.createVictory(def.name, DateTime.now(), victoryTypeId: definitionId);
+        // CRITICAL: Send backendId if available, otherwise fallback to local id (backend might reject it)
+        await apiService.createVictory(
+          def.name,
+          DateTime.now(),
+          victoryTypeId: def.backendId ?? definitionId,
+        );
       } catch (e) {
         // Offline: queue in pending_victories for later sync
         try {
           final def = _definitions.firstWhere((d) => d.id == definitionId);
           await LocalDatabaseService.insertPendingVictory(
-            definitionId: definitionId,
+            definitionId: def.backendId ?? definitionId, // Store backendId if we have it
             victoryName: def.name,
             loggedDate: DateTime.now().toIso8601String(),
           );
