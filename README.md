@@ -178,9 +178,11 @@ Este proyecto está bajo licencia MIT. Ver archivo `LICENSE` para más detalles.
 
 ---
 
-## 👨‍💻 Autor
+## Autor
 
-**Proyecto AWOS**  
+**Proyecto AWOS** 
+Desarrollado por: Antonio De Hoyos Hernández y Jaitovich Bisnaud Jimenez
+ 
 Universidad Politécnica de Chiapas - Proyecto Integrador 5A 2026
 
 ---
