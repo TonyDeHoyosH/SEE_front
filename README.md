@@ -8,7 +8,7 @@ Una aplicación móvil MVP para el manejo de crisis de salud mental, desarrollad
 
 ---
 
-## 📱 Descripción
+## Descripción
 
 AWOS es una aplicación de salud mental que ayuda a los usuarios a:
 - Gestionar momentos de crisis con técnicas de respiración guiadas
@@ -18,7 +18,7 @@ AWOS es una aplicación de salud mental que ayuda a los usuarios a:
 
 ---
 
-## 🏗️ Arquitectura
+## Arquitectura
 
 El proyecto sigue **Clean Architecture** con la siguiente estructura:
 
@@ -34,21 +34,21 @@ lib/
 
 ---
 
-## 🚀 Etapas Completadas
+## Etapas Completadas
 
-### ✅ Etapa 1: Cimientos y Modelos
+### Etapa 1: Cimientos y Modelos
 - Configuración de dependencias
 - 7 modelos de datos con serialización JSON
 - Servicio Mock para desarrollo sin backend
 - Theme personalizado con Google Fonts
 
-### ✅ Etapa 2: Autenticación
+### Etapa 2: Autenticación
 - Pantallas de Login y Register con validaciones
 - AuthProvider con state management
 - Navegación condicional basada en auth
 - Persistencia de token con SharedPreferences
 
-### ✅ Etapa 3: Dashboard y Catálogos
+### Etapa 3: Dashboard y Catálogos
 - DataProvider para catálogos (emociones, tipos de victoria, evaluaciones)
 - HomeScreen con dashboard dinámico
 - Botones de estado emocional ("BIEN" / "EN CRISIS")
@@ -57,7 +57,7 @@ lib/
 
 ---
 
-## 📦 Dependencias Principales
+## Dependencias Principales
 
 ```yaml
 dependencies:
@@ -70,7 +70,7 @@ dependencies:
 
 ---
 
-## 🛠️ Configuración Inicial
+## Configuración Inicial
 
 ### Prerrequisitos
 - Flutter SDK 3.2.0 o superior
@@ -107,7 +107,7 @@ dependencies:
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Análisis estático:
 ```bash
@@ -121,7 +121,7 @@ flutter test
 
 ---
 
-## 🎨 Design System
+##  Design System
 
 **Paleta de colores:**
 - **Primary Slate:** `#475569` - Color principal
@@ -135,7 +135,7 @@ flutter test
 
 ---
 
-## 📂 Modelos de Datos
+## Modelos de Datos
 
 | Modelo | Descripción |
 |--------|-------------|
@@ -150,25 +150,7 @@ flutter test
 
 ---
 
-## 🔄 Estado Actual del Proyecto
-
-**Funcionalidades implementadas:**
-- ✅ Autenticación completa (Login/Register/Logout)
-- ✅ Dashboard con datos dinámicos
-- ✅ Navegación por pestañas
-- ✅ Carga de catálogos en background
-- ✅ Mock API con delays realistas (1s)
-
-**Pendientes:**
-- ⏳ Flujo de crisis completo (respiración guiada)
-- ⏳ Pantalla de victorias (registro y visualización)
-- ⏳ Pantalla de cápsulas con filtros por emoción
-- ⏳ Gráficas de progreso
-- ⏳ Integración con backend real (HttpApiService)
-
----
-
-## 🤝 Contribución
+## Contribución
 
 Este es un proyecto académico/MVP. Para contribuir:
 
@@ -180,7 +162,7 @@ Este es un proyecto académico/MVP. Para contribuir:
 
 ---
 
-## 📝 Notas de Desarrollo
+## Notas de Desarrollo
 
 - **MockApiService** está activo por defecto en `main.dart`
 - Delay de red simulado: 1 segundo
@@ -190,7 +172,7 @@ Este es un proyecto académico/MVP. Para contribuir:
 
 ---
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está bajo licencia MIT. Ver archivo `LICENSE` para más detalles.
 
@@ -199,15 +181,24 @@ Este proyecto está bajo licencia MIT. Ver archivo `LICENSE` para más detalles.
 ## 👨‍💻 Autor
 
 **Proyecto AWOS**  
-Universidad - Servicios Web  
-2026
+Universidad Politécnica de Chiapas - Proyecto Integrador 5A 2026
 
 ---
 
-## 📞 Soporte
+##  Soporte
 
-Para preguntas o problemas, contacta a través de [tu-email@universidad.edu]
+Para preguntas o problemas, contacta a través de [adehoyosh@gmail.com]
 
 ---
 
-**¡Gracias por contribuir a la salud mental digital!** 💚
+**¡Gracias por contribuir a la salud mental digital!** 
+
+---
+
+## Asistencia de Inteligencia Artificial
+
+Parte del código de este proyecto fue desarrollado con el apoyo de herramientas de inteligencia artificial generativa como asistentes de codificación. Esto incluye la generación de estructuras base, sugerencias de implementación y validación de patrones arquitectónicos.
+
+El uso de estas herramientas fue deliberado y supervisado: cada fragmento de código generado fue revisado, adaptado y validado por el equipo de desarrollo para garantizar su correcta integración con la arquitectura MVVM del proyecto, el cumplimiento de los estándares de seguridad definidos y la coherencia con los requisitos funcionales del sistema.
+
+La IA fue utilizada como un recurso de productividad, no como un sustituto del criterio de ingeniería. La responsabilidad sobre las decisiones de diseño, la arquitectura y la calidad del software recae íntegramente en el equipo desarrollador.
