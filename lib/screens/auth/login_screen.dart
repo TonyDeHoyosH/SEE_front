@@ -4,6 +4,7 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
+import 'verify_2fa_screen.dart';
 import '../../widgets/privacy_policy_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -70,25 +71,37 @@ class _LoginScreenState extends State<LoginScreen>
     if (!mounted) return;
 
     if (authProvider.errorMessage != null) {
-      ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(child: Text(authProvider.errorMessage!, style: const TextStyle(fontSize: 14))),
-            ],
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded,
+                    color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Text(authProvider.errorMessage!,
+                        style: const TextStyle(fontSize: 14))),
+              ],
+            ),
+            backgroundColor: AppTheme.errorRed,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () =>
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+            ),
           ),
-          backgroundColor: AppTheme.errorRed,
-          duration: const Duration(seconds: 5),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
-          ),
-        ),
+        );
+    } else if (authProvider.requires2FA) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const Verify2FAScreen()),
       );
     } else if (authProvider.isAuthenticated) {
       Navigator.pushReplacement(
@@ -215,7 +228,6 @@ class _LoginScreenState extends State<LoginScreen>
                       },
                     ),
                     const SizedBox(height: 16),
-
                     TextButton(
                       onPressed: () {
                         Navigator.push(

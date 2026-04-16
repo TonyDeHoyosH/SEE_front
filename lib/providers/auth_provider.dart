@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -20,16 +21,32 @@ String _friendlyError(dynamic e) {
       raw.contains('timedout')) {
     return 'El servidor tardó demasiado en responder. Intenta en unos segundos.';
   }
-  if (raw.contains('401') || raw.contains('credenciales') || raw.contains('invalid credentials') || raw.contains('incorrect password') || raw.contains('contraseña')) {
+  if (raw.contains('código 2fa') ||
+      raw.contains('2fa inválido') ||
+      raw.contains('invalid totp') ||
+      raw.contains('invalid token')) {
+    return 'Código 2FA incorrecto. Verifica tu app de autenticación e intenta de nuevo.';
+  }
+  if (raw.contains('401') ||
+      raw.contains('credenciales') ||
+      raw.contains('invalid credentials') ||
+      raw.contains('incorrect password') ||
+      raw.contains('contraseña')) {
     return 'Correo o contraseña incorrectos. Verifica tus datos.';
   }
-  if (raw.contains('409') || raw.contains('already exists') || raw.contains('ya existe') || raw.contains('duplicate') || raw.contains('email already')) {
+  if (raw.contains('409') ||
+      raw.contains('already exists') ||
+      raw.contains('ya existe') ||
+      raw.contains('duplicate') ||
+      raw.contains('email already')) {
     return 'Este correo ya está registrado. Intenta iniciar sesión.';
   }
   if (raw.contains('400')) {
     return 'Los datos ingresados no son válidos. Verifica el formulario.';
   }
-  if (raw.contains('500') || raw.contains('server error') || raw.contains('internal')) {
+  if (raw.contains('500') ||
+      raw.contains('server error') ||
+      raw.contains('internal')) {
     return 'Error en el servidor. Por favor intenta más tarde.';
   }
   if (raw.contains('403')) {
@@ -38,20 +55,25 @@ String _friendlyError(dynamic e) {
   if (raw.contains('404')) {
     return 'No encontramos tu cuenta. Verifica el correo ingresado.';
   }
-  // Fallback: clean up internal prefixes
-  return e.toString()
+  return e
+      .toString()
       .replaceFirst('Exception: ', '')
       .replaceFirst('DioException: ', '')
       .replaceFirst('[connection error]: ', '');
 }
 
-
 class AuthProvider extends ChangeNotifier {
   final AuthApiService _authService;
   final CoreApiService _coreService;
+  final _storage = const FlutterSecureStorage();
+
   User? _user;
   bool _isLoading = false;
   String? _errorMessage;
+
+  // --- Estado Temporal 2FA ---
+  String? _tempToken;        // Token provisional recibido cuando requires2FA=true
+  bool _requires2FA = false; // Flag para iniciar pantalla 2FA desde la UI
 
   AuthProvider(this._authService, this._coreService);
 
@@ -60,19 +82,40 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _user != null;
 
+  /// true cuando el backend solicitó 2FA — la UI debe navegar a Verify2FAScreen
+  bool get requires2FA => _requires2FA;
+
+  // ---------------------------------------------------------------------------
+  // LOGIN — Paso A del flujo 2FA
+  // ---------------------------------------------------------------------------
   Future<void> login(String email, String password) async {
     _isLoading = true;
     _errorMessage = null;
+    _requires2FA = false;
+    _tempToken = null;
     notifyListeners();
 
     try {
-      _user = await _authService.login(email, password);
+      final (user, tempToken) = await _authService.login(email, password);
+
+      if (tempToken != null) {
+        // Backend requiere 2FA → guardamos temp y señalamos a la UI
+        _tempToken = tempToken;
+        _requires2FA = true;
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // Login normal sin 2FA
+      _user = user!;
       await _saveSession(_user!);
-      
-      // Fetch full profile (including avatarUrl) after login
-      final fullProfile = await _coreService.getMyProfile();
-      _user = fullProfile;
-      await _saveSession(_user!);
+
+      try {
+        final fullProfile = await _coreService.getMyProfile();
+        _user = fullProfile;
+        await _saveSession(_user!);
+      } catch (_) {}
 
       _isLoading = false;
       notifyListeners();
@@ -83,6 +126,97 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // VERIFY 2FA — Paso B del flujo 2FA
+  // ---------------------------------------------------------------------------
+  Future<void> verify2fa(String code6digits) async {
+    if (_tempToken == null) {
+      _errorMessage = 'Sesión 2FA expirada. Inicia sesión nuevamente.';
+      notifyListeners();
+      return;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _user = await _authService.verify2fa(_tempToken!, code6digits);
+      _tempToken = null;
+      _requires2FA = false;
+      await _saveSession(_user!);
+
+      try {
+        final fullProfile = await _coreService.getMyProfile();
+        _user = fullProfile;
+        await _saveSession(_user!);
+      } catch (_) {}
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = _friendlyError(e);
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // SETUP 2FA - Configuración
+  // ---------------------------------------------------------------------------
+  Future<Map<String, String>?> setup2FAWorkflow() async {
+    if (_user == null) return null;
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final data = await _authService.generate2fa(_user!.id);
+      _isLoading = false;
+      notifyListeners();
+      return data;
+    } catch (e) {
+      _errorMessage = _friendlyError(e);
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> confirmEnable2FA(String code6digits) async {
+    if (_user == null) return false;
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _authService.enable2fa(_user!.id, code6digits);
+      if (success) {
+        // Enforce state change if needed, but normally authProvider user doesn't track is2FAEnabled, 
+        // however we could update local user object if backend supports it.
+      }
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _errorMessage = _friendlyError(e);
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Cancela el flujo 2FA y regresa al estado inicial del login
+  void cancel2FA() {
+    _tempToken = null;
+    _requires2FA = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // REGISTER
+  // ---------------------------------------------------------------------------
   Future<void> register(
     String email,
     String password,
@@ -95,11 +229,12 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _authService.register(email, password, nombrePreferido);
       await _saveSession(_user!);
-      
-      // Fetch full profile (including avatarUrl) after registration
-      final fullProfile = await _coreService.getMyProfile();
-      _user = fullProfile;
-      await _saveSession(_user!);
+
+      try {
+        final fullProfile = await _coreService.getMyProfile();
+        _user = fullProfile;
+        await _saveSession(_user!);
+      } catch (_) {}
 
       _isLoading = false;
       notifyListeners();
@@ -110,6 +245,9 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // GOOGLE LOGIN
+  // ---------------------------------------------------------------------------
   Future<void> loginWithGoogle() async {
     _isLoading = true;
     _errorMessage = null;
@@ -131,28 +269,24 @@ class AuthProvider extends ChangeNotifier {
       ]);
 
       final String accessToken = authDetails.accessToken;
-
       if (accessToken.isEmpty) {
         throw Exception('No se pudo obtener el token de acceso de Google.');
       }
 
-      // Enviar snapshot de telemetría a nuestro backend
       await _coreService.sendTelemetrySnapshot(accessToken);
 
-      // Enviar credenciales a Node.js para que genere sesión en BD y devuelva su Token Oficial
       _user = await _authService.googleLogin(
         googleUser.email,
         googleUser.displayName ?? 'Usuario de Google',
         accessToken,
       );
-
-      // Guardar también la sesión global inicial
       await _saveSession(_user!);
 
-      // Fetch full profile (including avatarUrl) after Google login
-      final fullProfile = await _coreService.getMyProfile();
-      _user = fullProfile;
-      await _saveSession(_user!);
+      try {
+        final fullProfile = await _coreService.getMyProfile();
+        _user = fullProfile;
+        await _saveSession(_user!);
+      } catch (_) {}
 
       _isLoading = false;
       notifyListeners();
@@ -170,6 +304,9 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // AVATAR
+  // ---------------------------------------------------------------------------
   Future<void> updateAvatar(File imageFile) async {
     _isLoading = true;
     _errorMessage = null;
@@ -182,14 +319,12 @@ class AuthProvider extends ChangeNotifier {
       if (updated.avatarUrl != null) {
         await prefs.setString('user_avatar', updated.avatarUrl!);
       }
-      // Clean any pending offline cache for this user
       if (_user?.id != null) {
         await LocalDatabaseService.clearProfileCache(_user!.id);
       }
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      // Offline: save image locally for later sync
       debugPrint('Sin internet para subir avatar, guardando offline.');
       try {
         final userId = _user?.id ?? 'guest';
@@ -201,9 +336,8 @@ class AuthProvider extends ChangeNotifier {
           localPath: localPath,
           isSynced: false,
         );
-        // Show local file as current avatar in UI
         _user = _user?.copyWith(avatarUrl: 'file://$localPath');
-      } catch (cacheError) {
+      } catch (_) {
         _errorMessage = e.toString();
       }
       _isLoading = false;
@@ -211,8 +345,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Called after connectivity sync to refresh the avatar URL from SharedPrefs.
-  /// This updates the UI to show the newly uploaded remote photo.
+  /// Refrescamos la URL del avatar desde SharedPreferences tras sync.
   Future<void> refreshAvatarFromCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -241,8 +374,13 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // LOGOUT & SESSION
+  // ---------------------------------------------------------------------------
   Future<void> logout() async {
     _user = null;
+    _tempToken = null;
+    _requires2FA = false;
     await _clearSession();
     notifyListeners();
   }
@@ -251,38 +389,41 @@ class AuthProvider extends ChangeNotifier {
     try {
       _isLoading = true;
       notifyListeners();
-
       await _authService.deleteAccount();
     } catch (e) {
       _errorMessage = e.toString();
       rethrow;
     } finally {
-      // Limpiar sesión local independientemente del resultado si el servidor falla por alguna razón
       _user = null;
+      _tempToken = null;
+      _requires2FA = false;
       await _clearSession();
-
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // INTERNAL HELPERS
+  // ---------------------------------------------------------------------------
   Future<void> _saveSession(User user, {bool clearAvatar = false}) async {
+    // Guardar en SecureStorage (fuente de verdad para el token)
+    await _storage.write(key: 'auth_token', value: user.token);
+    // Mantener en SharedPreferences para compatibilidad con otros providers
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', user.token);
     await prefs.setString('user_id', user.id);
     await prefs.setString('user_email', user.email);
     await prefs.setString('user_nombre', user.nombrePreferido);
     if (user.avatarUrl != null) {
-      // Server returned a URL — always save it
       await prefs.setString('user_avatar', user.avatarUrl!);
     } else if (clearAvatar) {
-      // Explicit wipe (delete account / logout)
       await prefs.remove('user_avatar');
     }
-    // Otherwise: login returned no avatar — keep whatever was already stored
   }
 
   Future<void> _clearSession() async {
+    await _storage.delete(key: 'auth_token');
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_id');
@@ -298,14 +439,15 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      // Preferir SecureStorage, fallback a SharedPreferences
+      final token = await _storage.read(key: 'auth_token')
+          ?? prefs.getString('auth_token');
       final email = prefs.getString('user_email');
       final nombre = prefs.getString('user_nombre');
       final id = prefs.getString('user_id');
       final avatarUrl = prefs.getString('user_avatar');
 
       if (token != null && email != null && nombre != null && id != null) {
-        // Check for locally cached (offline) avatar
         String? resolvedAvatar = avatarUrl;
         try {
           final cache = await LocalDatabaseService.getProfileCache(id);

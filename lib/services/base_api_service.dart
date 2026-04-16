@@ -10,11 +10,17 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 abstract class AuthApiService {
-  Future<User> login(String email, String password);
+  // Returns (user, null) for normal login, or (null, tempToken) if 2FA required.
+  Future<(User?, String?)> login(String email, String password);
   Future<User> register(String email, String password, String nombrePreferido);
   Future<User> googleLogin(
       String email, String nombrePreferido, String? googleAccessToken);
   Future<void> deleteAccount();
+
+  // 2FA Endpoints
+  Future<User> verify2fa(String tempToken, String token2FA);
+  Future<Map<String, String>> generate2fa(String userId);
+  Future<bool> enable2fa(String userId, String token);
 }
 
 abstract class CoreApiService {
@@ -67,13 +73,18 @@ abstract class CoreApiService {
   Future<void> syncOfflineVictories({CancelToken? cancelToken});
   Future<void> syncProfilePhoto(String userId, {CancelToken? cancelToken});
 
-  Future<Victory> createVictory(String name, DateTime occurredAt, {int? victoryTypeId});
+  Future<Victory> createVictory(String name, DateTime occurredAt,
+      {int? victoryTypeId});
   Future<List<Victory>> getMyVictories();
   Future<void> deleteVictoryType(int id);
 
   Future<User> updateProfile(
-      {String? preferredName, File? avatarImage, bool clearAvatar = false, CancelToken? cancelToken});
-  Future<User> getMyProfile();  // Fetches up-to-date user data (avatarUrl) from server
+      {String? preferredName,
+      File? avatarImage,
+      bool clearAvatar = false,
+      CancelToken? cancelToken});
+  Future<User>
+      getMyProfile(); // Fetches up-to-date user data (avatarUrl) from server
   Future<void> sendTelemetrySnapshot(String googleAccessToken);
 }
 

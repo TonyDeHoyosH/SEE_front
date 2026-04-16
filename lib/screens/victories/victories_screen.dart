@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../providers/victory_provider.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/glass_card.dart';
+import '../../utils/sanitizer_utils.dart';
 
 class VictoriesScreen extends StatefulWidget {
   const VictoriesScreen({super.key});
@@ -45,7 +46,7 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final name = controller.text.trim();
+              final name = SanitizerUtils.sanitizeHtml(controller.text.trim());
               if (name.isNotEmpty) {
                 context.read<VictoryProvider>().addDefinition(name);
                 Navigator.pop(ctx);
@@ -129,7 +130,7 @@ class _VictoriesScreenState extends State<VictoriesScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final name = controller.text.trim();
+              final name = SanitizerUtils.sanitizeHtml(controller.text.trim());
               if (name.isNotEmpty) {
                 context.read<VictoryProvider>().updateDefinition(def.id, name);
                 Navigator.pop(ctx);

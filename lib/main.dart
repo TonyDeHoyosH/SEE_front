@@ -15,6 +15,7 @@ import 'providers/reflections_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'widgets/offline_banner.dart';
+import 'services/api_client.dart';
 
 // Cambia a false cuando el backend esté corriendo en el servidor.
 const bool _kUseMock = false;
@@ -42,6 +43,10 @@ void main() async {
 
   final authProvider = AuthProvider(authService, coreService);
   await authProvider.loadSavedUser();
+
+  ApiClient.onUnauthorized = () {
+    authProvider.logout();
+  };
 
   runApp(MyApp(
     authProvider: authProvider,
@@ -82,12 +87,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => VictoryProvider(coreService),
         ),
-        ChangeNotifierProvider(create: (_) => ReflectionsProvider()..loadPending()),
+        ChangeNotifierProvider(
+            create: (_) => ReflectionsProvider()..loadPending()),
         ChangeNotifierProvider(
           create: (ctx) => ConnectivityProvider(
             coreService,
             () => ctx.read<AuthProvider>().user?.id,
-            onSyncComplete: () => ctx.read<AuthProvider>().refreshAvatarFromCache(),
+            onSyncComplete: () =>
+                ctx.read<AuthProvider>().refreshAvatarFromCache(),
           ),
         ),
       ],

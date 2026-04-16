@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -23,11 +24,12 @@ import '../models/dashboard_data.dart';
 class ApiServiceImpl
     implements AuthApiService, CoreApiService, ReportsApiService {
   final ApiClient _apiClient = ApiClient();
+  final _storage = const FlutterSecureStorage();
 
   String? _resolveMediaUrl(String? path, {bool isAudio = false}) {
     if (path == null || path.isEmpty) return null;
     if (path.startsWith('http')) return path;
-    
+
     // Cloudinary Base URL depending on resource type
     final resourceType = isAudio ? 'video' : 'image';
     return 'https://res.cloudinary.com/dob7ey43j/$resourceType/upload/$path';
@@ -37,35 +39,38 @@ class ApiServiceImpl
   // AUTHENTICATION
   // ---------------------------------------------------------------------------
   @override
-  Future<User> login(String email, String password) async {
+  Future<(User?, String?)> login(String email, String password) async {
     try {
       final response = await _apiClient.authDio.post('/login', data: {
         'email': email,
         'password': password,
       });
 
-      // 🐛 DEBUG: ver exactamente qué devuelve el backend
       debugPrint('==== RESPUESTA LOGIN BACKEND ====');
       debugPrint('Type: ${response.data.runtimeType}');
       debugPrint('Data: ${response.data}');
       debugPrint('=================================');
 
       final data = response.data;
-
-      // Handle both flat response { token, user } and nested formats
-      String token = '';
-      Map<String, dynamic> userData = {};
-
-      if (data is Map<String, dynamic>) {
-        token = data['token'] ?? data['accessToken'] ?? '';
-        final rawUser = data['user'] ?? data['userData'] ?? data;
-        if (rawUser is Map<String, dynamic>) {
-          userData = rawUser;
-        }
-      } else {
-        throw Exception(
-            'Formato de respuesta inesperado del servidor: ${data.runtimeType}');
+      if (data is! Map<String, dynamic>) {
+        throw Exception('Formato de respuesta inesperado: ${data.runtimeType}');
       }
+
+      // ── Detectar flujo 2FA ────────────────────────────────────────────────
+      if (data['requires2FA'] == true) {
+        final tempToken = data['tempToken'] as String?;
+        if (tempToken == null || tempToken.isEmpty) {
+          throw Exception('El servidor solicitó 2FA pero no envió tempToken.');
+        }
+        debugPrint('[2FA] requires2FA=true → redirigiendo a verificación');
+        return (null, tempToken);
+      }
+
+      // ── Login normal sin 2FA ──────────────────────────────────────────────
+      final token = data['token'] ?? data['accessToken'] ?? '';
+      final rawUser = data['user'] ?? data['userData'] ?? data;
+      final userData =
+          rawUser is Map<String, dynamic> ? rawUser : <String, dynamic>{};
 
       final user = User(
         id: (userData['id'] ?? userData['userId'] ?? '').toString(),
@@ -73,26 +78,110 @@ class ApiServiceImpl
         nombrePreferido:
             userData['name'] ?? userData['preferredName'] ?? 'Usuario',
         token: token,
-        avatarUrl: userData['avatarUrl'] ?? _resolveMediaUrl(userData['avatarKey']?.toString()),
+        avatarUrl: userData['avatarUrl'] ??
+            _resolveMediaUrl(userData['avatarKey']?.toString()),
       );
 
-      // Save to local storage automatically
+      await _storage.write(key: 'auth_token', value: token);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', token);
       await prefs.setString('user_email', user.email);
       await prefs.setString('user_nombre', user.nombrePreferido);
 
-      return user;
+      return (user, null);
     } on DioException catch (e) {
-      debugPrint('==== ERROR LOGIN ====');
-      debugPrint('Status: ${e.response?.statusCode}');
+      debugPrint('==== ERROR LOGIN ==== status: ${e.response?.statusCode}');
       debugPrint('Data: ${e.response?.data}');
-      debugPrint('====================');
       final errorData = e.response?.data;
       final errorMsg = errorData is Map
           ? (errorData['error'] ?? errorData['message'] ?? e.message)
           : e.message;
       throw Exception('Error en login: $errorMsg');
+    }
+  }
+
+  @override
+  Future<User> verify2fa(String tempToken, String token2FA) async {
+    try {
+      final response =
+          await _apiClient.authDio.post('/login/verify-2fa', data: {
+        'tempToken': tempToken,
+        'token2FA': token2FA,
+      });
+
+      final data = response.data as Map<String, dynamic>;
+      final token = data['token'] ?? data['accessToken'] ?? '';
+      final rawUser = data['user'] ?? data['userData'] ?? data;
+      final userData =
+          rawUser is Map<String, dynamic> ? rawUser : <String, dynamic>{};
+
+      final user = User(
+        id: (userData['id'] ?? userData['userId'] ?? '').toString(),
+        email: userData['email'] ?? '',
+        nombrePreferido:
+            userData['name'] ?? userData['preferredName'] ?? 'Usuario',
+        token: token,
+        avatarUrl: userData['avatarUrl'] ??
+            _resolveMediaUrl(userData['avatarKey']?.toString()),
+      );
+
+      await _storage.write(key: 'auth_token', value: token);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_email', user.email);
+      await prefs.setString('user_nombre', user.nombrePreferido);
+
+      return user;
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      final errorMsg = errorData is Map
+          ? (errorData['error'] ?? errorData['message'] ?? e.message)
+          : e.message;
+      throw Exception('Código 2FA inválido: $errorMsg');
+    }
+  }
+
+  @override
+  Future<Map<String, String>> generate2fa(String userId) async {
+    try {
+      debugPrint('==== 2FA GENERATE ==== userId enviado: $userId');
+      final response =
+          await _apiClient.authDio.post('/2fa/generate', data: {
+        'userId': userId,
+      });
+      debugPrint('==== 2FA GENERATE RESPONSE: ${response.data}');
+      final data = response.data as Map<String, dynamic>;
+
+      return {
+        'qrCodeUrl': data['qrCodeUrl'] ?? data['otpauth_url'] ?? '',
+        'secret': data['secret'] ?? '',
+      };
+    } on DioException catch (e) {
+      debugPrint('==== 2FA GENERATE ERROR ==== status: ${e.response?.statusCode}');
+      debugPrint('Body: ${e.response?.data}');
+      final errorData = e.response?.data;
+      final errorMsg = errorData is Map
+          ? (errorData['error'] ?? errorData['message'] ?? e.message)
+          : e.message;
+      throw Exception(errorMsg);
+    }
+  }
+
+  @override
+  Future<bool> enable2fa(String userId, String token) async {
+    try {
+      debugPrint('==== 2FA ENABLE ==== userId: $userId, token: $token');
+      await _apiClient.authDio.post('/2fa/enable', data: {
+        'userId': userId,
+        'token': token,
+      });
+      return true;
+    } on DioException catch (e) {
+      debugPrint('==== 2FA ENABLE ERROR ==== status: ${e.response?.statusCode}');
+      debugPrint('Body: ${e.response?.data}');
+      final errorData = e.response?.data;
+      final errorMsg = errorData is Map
+          ? (errorData['error'] ?? errorData['message'] ?? e.message)
+          : e.message;
+      throw Exception(errorMsg);
     }
   }
 
@@ -109,7 +198,6 @@ class ApiServiceImpl
         'preferredName': nombrePreferido,
       });
 
-      // Backend returns: { token, userId }  (no "user" object)
       final data = response.data as Map<String, dynamic>;
       final token = data['token'] as String;
       final userId = (data['userId'] ?? '').toString();
@@ -119,20 +207,19 @@ class ApiServiceImpl
         email: email,
         nombrePreferido: nombrePreferido,
         token: token,
-        avatarUrl: data['avatarUrl'] ?? _resolveMediaUrl(data['avatarKey']?.toString()),
+        avatarUrl: data['avatarUrl'] ??
+            _resolveMediaUrl(data['avatarKey']?.toString()),
       );
 
+      await _storage.write(key: 'auth_token', value: token);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', token);
       await prefs.setString('user_email', user.email);
       await prefs.setString('user_nombre', user.nombrePreferido);
 
       return user;
     } on DioException catch (e) {
-      debugPrint('==== ERROR REGISTER ====');
-      debugPrint('Status: ${e.response?.statusCode}');
+      debugPrint('==== ERROR REGISTER ==== status: ${e.response?.statusCode}');
       debugPrint('Data: ${e.response?.data}');
-      debugPrint('=======================');
       final errorData = e.response?.data;
       final errorMsg = errorData is Map
           ? (errorData['error'] ?? errorData['message'] ?? e.message)
@@ -155,19 +242,21 @@ class ApiServiceImpl
       });
 
       final data = response.data;
-      final token = data['token'];
-      final userResponse = data['user'];
+      final token = data['token'] ?? '';
+      final userResponse = data['user'] ?? data;
 
       final appUser = User(
-        id: userResponse['id'],
-        email: userResponse['email'],
-        nombrePreferido: userResponse['name'],
+        id: (userResponse['id'] ?? userResponse['userId'] ?? '').toString(),
+        email: userResponse['email'] ?? email,
+        nombrePreferido:
+            userResponse['name'] ?? userResponse['preferredName'] ?? nombrePreferido,
         token: token,
-        avatarUrl: userResponse['avatarUrl'] ?? _resolveMediaUrl(userResponse['avatarKey']?.toString()),
+        avatarUrl: userResponse['avatarUrl'] ??
+            _resolveMediaUrl(userResponse['avatarKey']?.toString()),
       );
 
+      await _storage.write(key: 'auth_token', value: token);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', token);
       await prefs.setString('user_email', appUser.email);
       await prefs.setString('user_nombre', appUser.nombrePreferido);
 
@@ -184,7 +273,7 @@ class ApiServiceImpl
       await _apiClient.coreDio.delete('/users/profile');
     } catch (e) {
       debugPrint('Error en deleteAccount: $e');
-      rethrow; // Lanzar para que el Frontend lo sepa y de todas formas cierre sesión
+      rethrow;
     }
   }
 
@@ -247,7 +336,9 @@ class ApiServiceImpl
     if (cached != null) {
       try {
         final list = jsonDecode(cached) as List;
-        return list.map((e) => Emotion.fromJson(e as Map<String, dynamic>)).toList();
+        return list
+            .map((e) => Emotion.fromJson(e as Map<String, dynamic>))
+            .toList();
       } catch (e) {
         debugPrint('Error decodificando emociones cacheadas: $e');
       }
@@ -392,22 +483,26 @@ class ApiServiceImpl
         await LocalDatabaseService.upsertCapsuleFromBackend(capsuleMap);
 
         // Download audio file to local storage if it's an audio capsule and has a valid URL
-        if (contentType.toUpperCase() == 'AUDIO' && audioUrl != null && localAudio == audioUrl) {
-            try {
-              final appDir = await getApplicationDocumentsDirectory();
-              final localPath = '${appDir.path}/capsule_$capsuleId.mp4';
-              final localFile = File(localPath);
-              if (!await localFile.exists()) {
-                 debugPrint('Downloading audio for capsule $capsuleId to $localPath');
-                 await Dio().download(audioUrl, localPath);
-              }
-              // Update localAudio and map
-              localAudio = localPath;
-              capsuleMap['audio_path'] = localPath;
-              await LocalDatabaseService.upsertCapsuleFromBackend(capsuleMap); // update audio_path
-            } catch (e) {
-              debugPrint('Error downloading audio for capsule $capsuleId: $e');
+        if (contentType.toUpperCase() == 'AUDIO' &&
+            audioUrl != null &&
+            localAudio == audioUrl) {
+          try {
+            final appDir = await getApplicationDocumentsDirectory();
+            final localPath = '${appDir.path}/capsule_$capsuleId.mp4';
+            final localFile = File(localPath);
+            if (!await localFile.exists()) {
+              debugPrint(
+                  'Downloading audio for capsule $capsuleId to $localPath');
+              await Dio().download(audioUrl, localPath);
             }
+            // Update localAudio and map
+            localAudio = localPath;
+            capsuleMap['audio_path'] = localPath;
+            await LocalDatabaseService.upsertCapsuleFromBackend(
+                capsuleMap); // update audio_path
+          } catch (e) {
+            debugPrint('Error downloading audio for capsule $capsuleId: $e');
+          }
         }
 
         // Leer is_active DESDE la DB local (fuente de verdad para el usuario)
@@ -441,12 +536,14 @@ class ApiServiceImpl
       final dedupedCapsules = uniqueCapsules.values.toList();
 
       if (emotionId != null) {
-        return dedupedCapsules.where((c) => c.emotionIds.contains(emotionId)).toList();
+        return dedupedCapsules
+            .where((c) => c.emotionIds.contains(emotionId))
+            .toList();
       }
       return dedupedCapsules;
     } catch (e) {
       debugPrint('getCapsules error, cargando desde local DB: $e');
-      
+
       final localRows = await LocalDatabaseService.getAllCapsules();
       final Map<String, Capsule> localById = {};
       for (final row in localRows) {
@@ -464,9 +561,11 @@ class ApiServiceImpl
         localById[c.id] = c;
       }
       final offlineCapsules = localById.values.toList();
-      
+
       if (emotionId != null) {
-        return offlineCapsules.where((c) => c.emotionIds.contains(emotionId)).toList();
+        return offlineCapsules
+            .where((c) => c.emotionIds.contains(emotionId))
+            .toList();
       }
       return offlineCapsules;
     }
@@ -507,7 +606,7 @@ class ApiServiceImpl
 
         final presignData = presignRes.data as Map<String, dynamic>;
         String uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
-        
+
         // CORRECCIÓN: Si el backend por defecto devuelve el endpoint de imágenes,
         // Cloudinary rechazará el audio. Forzamos el endpoint a 'video' (usado para audio).
         if (uploadUrl.contains('/image/upload')) {
@@ -522,19 +621,27 @@ class ApiServiceImpl
         // PASO 2: Subir directamente a Cloudinary con POST
         try {
           final fields = <String, dynamic>{};
-          final allowedList = ['api_key', 'timestamp', 'signature', 'folder', 'public_id', 'upload_preset'];
+          final allowedList = [
+            'api_key',
+            'timestamp',
+            'signature',
+            'folder',
+            'public_id',
+            'upload_preset'
+          ];
           presignData.forEach((k, v) {
             final normalizedKey = k == 'apiKey' ? 'api_key' : k;
             if (allowedList.contains(normalizedKey)) {
               fields[normalizedKey] = v;
             }
           });
-          
+
           if (presignData['key'] != null) {
             fields['public_id'] = presignData['key'];
           }
-          
-          fields['file'] = await MultipartFile.fromFile(audioFile.path, filename: fileName);
+
+          fields['file'] =
+              await MultipartFile.fromFile(audioFile.path, filename: fileName);
 
           final formData = FormData.fromMap(fields);
 
@@ -593,7 +700,8 @@ class ApiServiceImpl
 
       // Build audio URL from the s3Key returned by the backend
       final createdS3Key = json['s3Key']?.toString();
-      String? createdAudioUrl = _resolveMediaUrl(createdS3Key, isAudio: type == 'AUDIO');
+      String? createdAudioUrl =
+          _resolveMediaUrl(createdS3Key, isAudio: type == 'AUDIO');
 
       // Parse emotion ids from targetEmotions if present
       final rawEmotions = json['targetEmotions'] as List? ?? [];
@@ -677,7 +785,14 @@ class ApiServiceImpl
 
         try {
           final fields = <String, dynamic>{};
-          final allowedList = ['api_key', 'timestamp', 'signature', 'folder', 'public_id', 'upload_preset'];
+          final allowedList = [
+            'api_key',
+            'timestamp',
+            'signature',
+            'folder',
+            'public_id',
+            'upload_preset'
+          ];
           presignData.forEach((k, v) {
             final normalizedKey = k == 'apiKey' ? 'api_key' : k;
             if (allowedList.contains(normalizedKey)) {
@@ -689,7 +804,8 @@ class ApiServiceImpl
             fields['public_id'] = presignData['key'];
           }
 
-          fields['file'] = await MultipartFile.fromFile(audioFile.path, filename: fileName);
+          fields['file'] =
+              await MultipartFile.fromFile(audioFile.path, filename: fileName);
 
           final formData = FormData.fromMap(fields);
 
@@ -737,7 +853,8 @@ class ApiServiceImpl
             }
           }
         } catch (e) {
-          debugPrint('Error eliminando audio local tras desactivar cápsula: $e');
+          debugPrint(
+              'Error eliminando audio local tras desactivar cápsula: $e');
         }
       }
 
@@ -788,7 +905,7 @@ class ApiServiceImpl
   Future<void> deleteCapsule(String id) async {
     try {
       await _apiClient.coreDio.delete('/capsules/$id');
-      
+
       // Cleanup offline files and db row
       try {
         final localRow = await LocalDatabaseService.getCapsuleById(id);
@@ -806,7 +923,6 @@ class ApiServiceImpl
       } catch (e) {
         debugPrint('Error limpiando datos locales al borrar cápsula: $e');
       }
-      
     } on DioException catch (e) {
       final errorMsg = e.response?.data['error'] ?? e.message;
       throw Exception('Error al eliminar cápsula: $errorMsg');
@@ -868,9 +984,9 @@ class ApiServiceImpl
       };
     } catch (e) {
       debugPrint('Error de red al crear crisis, usando modo offline: $e');
-      
+
       final crisisId = 'local_${DateTime.now().millisecondsSinceEpoch}';
-      
+
       final crisis = Crisis(
         id: crisisId,
         startedAt: DateTime.now(),
@@ -911,7 +1027,7 @@ class ApiServiceImpl
             'is_synced': row['is_synced'] == 1,
           });
         }).toList();
-        
+
         final activeCapsules = localCapsules.where((c) => c.isActive).toList();
         if (activeCapsules.isNotEmpty && emotionIds.isNotEmpty) {
           for (final eid in emotionIds) {
@@ -964,7 +1080,8 @@ class ApiServiceImpl
         breathingCompleted: breathingExerciseCompleted ?? false,
       );
     } catch (e) {
-      debugPrint('[Crisis] PATCH /progress ERROR, guardando local e indicando offline: $e');
+      debugPrint(
+          '[Crisis] PATCH /progress ERROR, guardando local e indicando offline: $e');
 
       // Persist locally AND rethrow so the caller (endCrisis) knows to mark
       // the crisis as is_synced = 0 for later synchronization.
@@ -1011,7 +1128,7 @@ class ApiServiceImpl
       );
     } catch (e) {
       debugPrint('Error guardando reflexión red, usando local: $e');
-      
+
       await LocalDatabaseService.updateCrisisReflection(
         id,
         trigger: triggerDesc ?? '',
@@ -1056,48 +1173,65 @@ class ApiServiceImpl
     final unsynced = await LocalDatabaseService.getUnsyncedCrises();
     if (unsynced.isEmpty) return;
 
-    debugPrint('Iniciando sincronización de ${unsynced.length} crisis offline...');
-    
+    debugPrint(
+        'Iniciando sincronización de ${unsynced.length} crisis offline...');
+
     for (final crisisMap in unsynced) {
       try {
         final localId = crisisMap['id'] as String;
         final intensity = crisisMap['intensity'] as int? ?? 5;
         final emotionIdsStr = crisisMap['emotion_ids'] as String? ?? '';
-        final emotionIds = emotionIdsStr.split(',').where((e) => e.isNotEmpty).map(int.parse).toList();
-        
+        final emotionIds = emotionIdsStr
+            .split(',')
+            .where((e) => e.isNotEmpty)
+            .map(int.parse)
+            .toList();
+
         // 1. Crear crisis
-        final res = await _apiClient.coreDio.post('/crisis', data: {
-          'intensityLevel': intensity,
-          'emotionIds': emotionIds,
-        }, cancelToken: cancelToken);
-        
+        final res = await _apiClient.coreDio.post('/crisis',
+            data: {
+              'intensityLevel': intensity,
+              'emotionIds': emotionIds,
+            },
+            cancelToken: cancelToken);
+
         final newCrisisId = res.data['crisisId'];
-        
+
         // 2. updateProgress
         final breathingCompleted = crisisMap['breathing_completed'] == 1;
-        await _apiClient.coreDio.patch('/crisis/$newCrisisId/progress', data: {
-          'breathingExerciseCompleted': breathingCompleted,
-          if (crisisMap['evaluation'] != null && crisisMap['evaluation'].toString().isNotEmpty)
-             'finalEvaluationId': int.tryParse(crisisMap['evaluation'].toString()),
-        }, cancelToken: cancelToken);
-        
+        await _apiClient.coreDio.patch('/crisis/$newCrisisId/progress',
+            data: {
+              'breathingExerciseCompleted': breathingCompleted,
+              if (crisisMap['evaluation'] != null &&
+                  crisisMap['evaluation'].toString().isNotEmpty)
+                'finalEvaluationId':
+                    int.tryParse(crisisMap['evaluation'].toString()),
+            },
+            cancelToken: cancelToken);
+
         // 3. saveReflection
         final reflectionPending = crisisMap['reflection_pending'] == 1;
         if (!reflectionPending) {
-           await _apiClient.coreDio.put(
-             '/crisis/$newCrisisId/reflection',
-             data: {
-               if (crisisMap['reflection_trigger'] != null) 'triggerDesc': crisisMap['reflection_trigger'],
-               if (crisisMap['reflection_location'] != null) 'location': crisisMap['reflection_location'],
-               if (crisisMap['reflection_company'] != null) 'companion': crisisMap['reflection_company'],
-               if (crisisMap['reflection_substance'] != null) 'substanceUse': crisisMap['reflection_substance'],
-               if (crisisMap['evaluation'] != null && crisisMap['evaluation'].toString().isNotEmpty)
-                 'finalEvaluationId': int.tryParse(crisisMap['evaluation'].toString()),
-             },
-             cancelToken: cancelToken,
-           );
+          await _apiClient.coreDio.put(
+            '/crisis/$newCrisisId/reflection',
+            data: {
+              if (crisisMap['reflection_trigger'] != null)
+                'triggerDesc': crisisMap['reflection_trigger'],
+              if (crisisMap['reflection_location'] != null)
+                'location': crisisMap['reflection_location'],
+              if (crisisMap['reflection_company'] != null)
+                'companion': crisisMap['reflection_company'],
+              if (crisisMap['reflection_substance'] != null)
+                'substanceUse': crisisMap['reflection_substance'],
+              if (crisisMap['evaluation'] != null &&
+                  crisisMap['evaluation'].toString().isNotEmpty)
+                'finalEvaluationId':
+                    int.tryParse(crisisMap['evaluation'].toString()),
+            },
+            cancelToken: cancelToken,
+          );
         }
-        
+
         // 4. Mark as synced and delete from local pending to avoid duplicate
         final db = await LocalDatabaseService.database;
         await db.delete('crisis', where: 'id = ?', whereArgs: [localId]);
@@ -1131,12 +1265,13 @@ class ApiServiceImpl
           'victoryTypeId': defId,
           if (loggedDate != null) 'occurredAt': loggedDate,
         };
-        
+
         debugPrint('==== SINCRONIZANDO VICTORIA OFFLINE ====');
         debugPrint('Payload: $payload');
         debugPrint('========================================');
-        
-        await _apiClient.coreDio.post('/victories', data: payload, cancelToken: cancelToken);
+
+        await _apiClient.coreDio
+            .post('/victories', data: payload, cancelToken: cancelToken);
 
         await LocalDatabaseService.deletePendingVictory(rowId);
         debugPrint('Victoria offline "$name" sincronizada.');
@@ -1153,7 +1288,8 @@ class ApiServiceImpl
   }
 
   @override
-  Future<void> syncProfilePhoto(String userId, {CancelToken? cancelToken}) async {
+  Future<void> syncProfilePhoto(String userId,
+      {CancelToken? cancelToken}) async {
     final cache = await LocalDatabaseService.getProfileCache(userId);
     if (cache == null) return;
     final isSynced = (cache['is_synced'] as int? ?? 1) == 1;
@@ -1170,7 +1306,8 @@ class ApiServiceImpl
 
     try {
       debugPrint('Sincronizando foto de perfil offline desde $localPath...');
-      final updatedUser = await updateProfile(avatarImage: file, cancelToken: cancelToken);
+      final updatedUser =
+          await updateProfile(avatarImage: file, cancelToken: cancelToken);
 
       // Persist new remote URL in SharedPreferences so UI refreshes
       final prefs = await SharedPreferences.getInstance();
@@ -1190,19 +1327,21 @@ class ApiServiceImpl
 
   // ---------------------------------------------------------------------------
   @override
-  Future<Victory> createVictory(String name, DateTime occurredAt, {int? victoryTypeId}) async {
+  Future<Victory> createVictory(String name, DateTime occurredAt,
+      {int? victoryTypeId}) async {
     try {
       final payload = {
         if (victoryTypeId != null) 'victoryTypeIds': [victoryTypeId],
         'newCustomVictoryName': name,
         // 'occurredAt': occurredAt.toIso8601String(), // Validar backend
       };
-      
+
       debugPrint('==== ENVIANDO VICTORIA NUEVA ====');
-      debugPrint('Payload: $payload'); 
+      debugPrint('Payload: $payload');
       debugPrint('=================================');
-      
-      final response = await _apiClient.coreDio.post('/victories', data: payload);
+
+      final response =
+          await _apiClient.coreDio.post('/victories', data: payload);
       return Victory(
         id: response.data['insertedIds']?.first?.toString() ?? 'temp',
         name: name,
@@ -1262,7 +1401,10 @@ class ApiServiceImpl
     return User(
       id: data['id']?.toString() ?? prefs.getString('user_id') ?? '',
       email: data['email'] ?? prefs.getString('user_email') ?? '',
-      nombrePreferido: data['preferredName'] ?? data['name'] ?? prefs.getString('user_nombre') ?? '',
+      nombrePreferido: data['preferredName'] ??
+          data['name'] ??
+          prefs.getString('user_nombre') ??
+          '',
       token: prefs.getString('auth_token') ?? '',
       avatarUrl: avatarUrl,
     );
@@ -1280,31 +1422,42 @@ class ApiServiceImpl
       // 1. If there's an avatar image, upload it to Cloudinary first
       if (avatarImage != null) {
         final fileName = avatarImage.path.split('/').last;
-        final presignRes =
-            await _apiClient.coreDio.get('/media/upload-url', queryParameters: {
-          'filename': fileName,
-          'fileType': 'image/jpeg',
-        }, cancelToken: cancelToken);
+        final presignRes = await _apiClient.coreDio.get('/media/upload-url',
+            queryParameters: {
+              'filename': fileName,
+              'fileType': 'image/jpeg',
+            },
+            cancelToken: cancelToken);
 
         final presignData = presignRes.data as Map<String, dynamic>;
         final uploadUrl = presignData['uploadUrl'] ?? presignData['url'];
-        avatarKey = presignData['fileUrl'] ?? presignData['key'] ?? presignData['s3Key'];
+        avatarKey = presignData['fileUrl'] ??
+            presignData['key'] ??
+            presignData['s3Key'];
 
         try {
           final fields = <String, dynamic>{};
-          final allowedList = ['api_key', 'timestamp', 'signature', 'folder', 'public_id', 'upload_preset'];
+          final allowedList = [
+            'api_key',
+            'timestamp',
+            'signature',
+            'folder',
+            'public_id',
+            'upload_preset'
+          ];
           presignData.forEach((k, v) {
             final normalizedKey = k == 'apiKey' ? 'api_key' : k;
             if (allowedList.contains(normalizedKey)) {
               fields[normalizedKey] = v;
             }
           });
-          
+
           if (presignData['key'] != null) {
             fields['public_id'] = presignData['key'];
           }
-          
-          fields['file'] = await MultipartFile.fromFile(avatarImage.path, filename: fileName);
+
+          fields['file'] = await MultipartFile.fromFile(avatarImage.path,
+              filename: fileName);
 
           final formData = FormData.fromMap(fields);
 
@@ -1339,8 +1492,8 @@ class ApiServiceImpl
             ''; // Sending empty string to force Prisma to clear it
       }
 
-      final response =
-          await _apiClient.coreDio.put('/users/profile', data: body, cancelToken: cancelToken);
+      final response = await _apiClient.coreDio
+          .put('/users/profile', data: body, cancelToken: cancelToken);
 
       final data = response.data['user'] ?? response.data;
       final prefs = await SharedPreferences.getInstance();

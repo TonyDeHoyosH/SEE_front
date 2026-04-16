@@ -14,7 +14,7 @@ import '../models/dashboard_data.dart';
 class MockApiService
     implements AuthApiService, CoreApiService, ReportsApiService {
   @override
-  Future<User> login(String email, String password) async {
+  Future<(User?, String?)> login(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1));
 
     final userJson = {
@@ -24,7 +24,34 @@ class MockApiService
       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.token",
     };
 
-    return User.fromJson(userJson);
+    return (User.fromJson(userJson), null); // Mock: no 2FA
+  }
+
+  @override
+  Future<User> verify2fa(String tempToken, String token2FA) async {
+    await Future.delayed(const Duration(milliseconds: 800));
+    // Mock: any 6-digit code succeeds
+    return User(
+      id: 'uuid-user-123',
+      email: 'mock@see.app',
+      nombrePreferido: 'Usuario',
+      token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.2fa.token',
+    );
+  }
+
+  @override
+  Future<Map<String, String>> generate2fa(String userId) async {
+    await Future.delayed(const Duration(seconds: 1));
+    return {
+      'qrCodeUrl': 'https://mockqr.com/qrcode',
+      'secret': 'MOCKSECRET123',
+    };
+  }
+
+  @override
+  Future<bool> enable2fa(String userId, String token) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    return true;
   }
 
   @override

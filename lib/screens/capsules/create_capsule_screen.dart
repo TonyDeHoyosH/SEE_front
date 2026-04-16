@@ -9,6 +9,7 @@ import '../../services/base_api_service.dart';
 import '../../services/local_database_service.dart';
 import '../../models/capsule.dart';
 import '../../widgets/crisis_step_indicator.dart';
+import '../../utils/sanitizer_utils.dart';
 
 class CreateCapsuleScreen extends StatefulWidget {
   final Capsule? capsule;
@@ -75,7 +76,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final title = _titleController.text.trim();
+      final title = SanitizerUtils.sanitizeHtml(_titleController.text.trim());
       final api = context.read<CoreApiService>();
 
       if (widget.capsule == null) {
@@ -83,7 +84,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
           await api.createCapsule(
                 title: title,
                 type: 'TEXT',
-                contentText: _contentController.text.trim(),
+                contentText: SanitizerUtils.sanitizeHtml(_contentController.text.trim()),
                 emotionIds: _selectedEmotionIds,
               );
         } else if (_capsuleType == 'audio' && _audioPath != null) {
@@ -104,7 +105,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
               capsuleId,
               title: title,
               contentText: _capsuleType == 'texto'
-                  ? _contentController.text.trim()
+                  ? SanitizerUtils.sanitizeHtml(_contentController.text.trim())
                   : null,
               emotionIds: _selectedEmotionIds,
             );
@@ -113,7 +114,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
         final localUpdateData = {
           'id': capsuleId,
           'title': title,
-          'content': _capsuleType == 'texto' ? _contentController.text.trim() : '',
+          'content': _capsuleType == 'texto' ? SanitizerUtils.sanitizeHtml(_contentController.text.trim()) : '',
           'emotion_ids': _selectedEmotionIds.join(','),
           'is_active': widget.capsule?.isActive ?? true ? 1 : 0,
           'type': _capsuleType,

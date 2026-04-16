@@ -11,6 +11,7 @@ import '../providers/victory_provider.dart';
 import '../screens/auth/login_screen.dart';
 import 'privacy_policy_dialog.dart';
 import 'terms_conditions_dialog.dart';
+import '../screens/auth/setup_2fa_screen.dart';
 import '../providers/connectivity_provider.dart';
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -168,6 +169,23 @@ class AppDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pop(context); // Cierra el menú
               TermsAndConditionsDialog.show(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.security_rounded, color: AppTheme.accentPrimary),
+            title: Text(
+              'Configurar Seguridad (2FA)',
+              style: GoogleFonts.nunito(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            onTap: () {
+              Navigator.pop(context); // Cierra el menú
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const Setup2FAScreen()),
+              );
             },
           ),
           const Divider(),
