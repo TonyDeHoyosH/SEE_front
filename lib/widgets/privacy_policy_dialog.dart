@@ -113,9 +113,33 @@ class _PrivacyPolicyDialogState extends State<PrivacyPolicyDialog> {
               const SizedBox(height: 16),
               const Divider(height: 1),
               const SizedBox(height: 16),
-              const Expanded(
+              Expanded(
                 child: SingleChildScrollView(
-                  child: Text(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFF3E5F5),
+                          borderRadius: BorderRadius.all(Radius.circular(10)),
+                          border: Border.fromBorderSide(
+                            BorderSide(color: Color(0xFF9C27B0), width: 1),
+                          ),
+                        ),
+                        child: Text(
+                          'Al hacer uso de SEE, usted manifiesta haber leido y aceptado el presente Aviso de Privacidad, consintiendo el tratamiento de sus datos personales conforme a lo aqui descrito.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.5,
+                            color: Color(0xFF4A148C),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
                     '''En cumplimiento a lo establecido por la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP), SEE (Sistema de Equilibrio Emocional) pone a su disposición este Aviso de Privacidad.
 
 1. Información que Recopilamos
@@ -140,6 +164,8 @@ Al presionar "Aceptar", usted consiente que sus datos personales formen parte de
                       height: 1.5,
                       color: AppTheme.textSecondary,
                     ),
+                    ),
+                  ],
                   ),
                 ),
               ),

@@ -68,9 +68,33 @@ class TermsAndConditionsDialog extends StatelessWidget {
               const SizedBox(height: 16),
               const Divider(height: 1),
               const SizedBox(height: 16),
-              const Expanded(
+              Expanded(
                 child: SingleChildScrollView(
-                  child: Text(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFFF8E1),
+                          borderRadius: BorderRadius.all(Radius.circular(10)),
+                          border: Border.fromBorderSide(
+                            BorderSide(color: Color(0xFFFFB300), width: 1),
+                          ),
+                        ),
+                        child: Text(
+                          '⚠️  Al descargar, instalar o hacer uso de SEE, se entenderá que has leído, comprendido y aceptado en su totalidad los presentes Términos y Condiciones.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.5,
+                            color: Color(0xFF7B4F00),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
                     '''Bienvenido a SEE (Sistema de Equilibrio Emocional). Al descargar, instalar y utilizar esta aplicación, usted acepta los siguientes Términos y Condiciones.
                     
 1. Uso Proporcionado y Limitaciones
@@ -97,6 +121,8 @@ Al continuar usando SEE, usted acepta haber leído, entendido y acordado regirse
                       height: 1.5,
                       color: AppTheme.textSecondary,
                     ),
+                    ),
+                  ],
                   ),
                 ),
               ),
